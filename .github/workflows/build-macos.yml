@@ -1,0 +1,114 @@
+name: Build RCA BA-6A (Apple Silicon)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-arm64:
+    # macos-14 retires November 2, 2026; macos-15 is arm64.
+    runs-on: macos-15
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Check build tools and architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "arm64"
+          command -v cmake
+          command -v ninja
+          command -v xcrun
+          command -v codesign
+          cmake --version
+          ninja --version
+          xcodebuild -version
+
+      - name: Configure JUCE 8.0.15 via FetchContent
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DRCABA6A_BUILD_PLUGIN=ON \
+            -DBUILD_TESTING=ON
+
+      - name: Build VST3, AU, Standalone and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build --config Release \
+            --target RCABA6A_VST3 RCABA6A_AU RCABA6A_Standalone \
+                     BA6A_Tests BA6A_GUI_AssetTests \
+            --parallel 2
+
+      - name: Run tests
+        shell: bash
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Sign and archive macOS bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          base="build/RCABA6A_artefacts/Release"
+          vst3="$base/VST3/rcaba6a.vst3"
+          au="$base/AU/rcaba6a.component"
+          app="$base/Standalone/rcaba6a.app"
+
+          test -d "$vst3" || { echo "VST3 missing: $vst3" >&2; exit 1; }
+          test -d "$au" || { echo "AU missing: $au" >&2; exit 1; }
+
+          for bundle in "$vst3" "$au"; do
+            codesign --force --deep --sign - "$bundle"
+            codesign --verify --deep --strict --verbose=2 "$bundle"
+            executable=$(find "$bundle/Contents/MacOS" -maxdepth 1 -type f | head -n 1)
+            test -n "$executable"
+            test "$(lipo -archs "$executable")" = "arm64"
+          done
+          ditto -c -k --keepParent "$vst3" dist/rcaba6a-vst3-macos-arm64.zip
+          ditto -c -k --keepParent "$au" dist/rcaba6a-au-macos-arm64.zip
+
+          if [[ -d "$app" ]]; then
+            codesign --force --deep --sign - "$app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            executable=$(find "$app/Contents/MacOS" -maxdepth 1 -type f | head -n 1)
+            test -n "$executable"
+            test "$(lipo -archs "$executable")" = "arm64"
+            ditto -c -k --keepParent "$app" dist/rcaba6a-standalone-macos-arm64.zip
+          fi
+          ls -lah dist
+
+      - name: Upload VST3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rcaba6a-vst3-macos-arm64
+          path: dist/rcaba6a-vst3-macos-arm64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Audio Unit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rcaba6a-au-macos-arm64
+          path: dist/rcaba6a-au-macos-arm64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Standalone artifact
+        if: ${{ hashFiles('dist/rcaba6a-standalone-macos-arm64.zip') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rcaba6a-standalone-macos-arm64
+          path: dist/rcaba6a-standalone-macos-arm64.zip
+          if-no-files-found: error
+          retention-days: 30
