@@ -134,6 +134,12 @@ RCABA6AAudioProcessorEditor::RCABA6AAudioProcessorEditor(RCABA6AAudioProcessor& 
         s.setName(mainNames[n]);
         s.setTooltip(juce::String(mainNames[n])+" — drag vertically or use mouse wheel");
     }
+    // Place the service drawer ABOVE the main controls, not in the editor's
+    // paint(): JUCE paints all child components after the parent's paint().
+    servicePanel.setInterceptsMouseClicks(false,true);
+    addAndMakeVisible(servicePanel);
+    servicePanel.setVisible(false);
+
     const char* trimIDs[] = {"balanceA","balanceB","zero","fineOutput","hum","heater"};
     for (int n=0;n<6;++n)
         configureKnob(serviceKnobs[static_cast<std::size_t>(n)], trimIDs[n],
@@ -151,13 +157,15 @@ RCABA6AAudioProcessorEditor::RCABA6AAudioProcessorEditor(RCABA6AAudioProcessor& 
     powerButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff526047));
     powerButton.setColour(juce::TextButton::textColourOffId, ivory);
     powerButton.setColour(juce::TextButton::textColourOnId, ivory);
-    addAndMakeVisible(powerButton);
+    servicePanel.addAndMakeVisible(powerButton);
     powerBinding = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         audioProcessor.apvts,"power",powerButton);
     setResizable(true,true);
     setResizeLimits(940,529,1672,941);
     getConstrainer()->setFixedAspectRatio(static_cast<double>(artWidth/artHeight));
     setSize(1254,706);
+    servicePanel.toFront(false);
+    serviceButton.toFront(false); // close button always accessible
     startTimerHz(30);
 }
 
@@ -181,7 +189,10 @@ void RCABA6AAudioProcessorEditor::configureKnob(
     s.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);
     s.setRotaryParameters(-.79f*pi,.79f*pi,true);
     s.setLookAndFeel(&knobStyle);
-    addAndMakeVisible(s);
+    if (id.startsWith("trim"))
+        servicePanel.addAndMakeVisible(s);
+    else
+        addAndMakeVisible(s);
     attachment=std::make_unique<SliderAttachment>(audioProcessor.apvts,parameter,s);
 }
 
@@ -197,6 +208,7 @@ void RCABA6AAudioProcessorEditor::resized() {
         const auto [cx,cy]=knobOrigins[static_cast<std::size_t>(n)];
         place(mainKnobs[static_cast<std::size_t>(n)],cx,cy,206.f,206.f);
     }
+    servicePanel.setBounds(getLocalBounds());
     for (int n=0;n<6;++n)
         place(serviceKnobs[static_cast<std::size_t>(n)],
               168.f+static_cast<float>(n)*221.f,782.f,104.f,104.f);
@@ -211,12 +223,9 @@ void RCABA6AAudioProcessorEditor::timerCallback() {
     const float target=serviceOpen?1.f:0.f;
     serviceOpening += .23f * (target-serviceOpening);
     if (std::abs(serviceOpening-target)<.005f) serviceOpening=target;
-    for (auto& slider:serviceKnobs) {
-        slider.setVisible(serviceOpening > .06f);
-        slider.setAlpha(serviceOpening);
-    }
-    powerButton.setVisible(serviceOpening>.06f);
-    powerButton.setAlpha(serviceOpening);
+    // The drawer and all its child controls share a single alpha and z-order.
+    servicePanel.setVisible(serviceOpening > .005f);
+    servicePanel.setAlpha(serviceOpening);
     powerButton.setButtonText(powerButton.getToggleState()?"POWER ON":"POWER OFF");
     repaint();
 }
@@ -229,7 +238,6 @@ void RCABA6AAudioProcessorEditor::paint(juce::Graphics& g) {
         static_cast<float>(getHeight())/artHeight));
     if (faceplate.isValid()) g.drawImageAt(faceplate,0,0);
     drawNeedle(g);
-    drawServiceDrawer(g);
 }
 
 void RCABA6AAudioProcessorEditor::drawNeedle(juce::Graphics& g) {
@@ -249,11 +257,13 @@ void RCABA6AAudioProcessorEditor::drawNeedle(juce::Graphics& g) {
     g.drawLine(pivotX-.7f,pivotY,x-.7f,y,1.f);
 }
 
-void RCABA6AAudioProcessorEditor::drawServiceDrawer(juce::Graphics& g) {
-    if (serviceOpening <= .01f) return;
-    // Overlay is deliberately limited to OPEN SERVICE mode, leaving the chosen
-    // photo-real front panel pristine during ordinary mixing.
-    const float alpha=juce::jlimit(0.f,1.f,serviceOpening);
+void BA6AServicePanel::paint(juce::Graphics& g) {
+    const juce::Graphics::ScopedSaveState save(g);
+    g.addTransform(juce::AffineTransform::scale(
+        static_cast<float>(getWidth()) / artWidth,
+        static_cast<float>(getHeight()) / artHeight));
+    // The parent's alpha animates the whole panel uniformly, including controls.
+    constexpr float alpha = 1.0f;
     g.setColour(juce::Colour(0xff171a17).withMultipliedAlpha(alpha*.97f));
     g.fillRoundedRectangle(50.f,694.f,1572.f,221.f,14.f);
     g.setColour(juce::Colour(0xffc0b39a).withMultipliedAlpha(alpha*.75f));

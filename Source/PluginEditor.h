@@ -13,6 +13,13 @@ public:
                           float rotaryEndAngle, juce::Slider&) override;
 };
 
+// Separate composited child layer. Its paint() runs after the main knobs,
+// while its trim knobs/power switch render above the drawer background.
+class BA6AServicePanel final : public juce::Component {
+public:
+    void paint(juce::Graphics&) override;
+};
+
 class RCABA6AAudioProcessorEditor final : public juce::AudioProcessorEditor,
                                           private juce::Timer {
 public:
@@ -27,13 +34,13 @@ private:
                        std::unique_ptr<SliderAttachment>& attachment,
                        const juce::String& componentID);
     void drawNeedle(juce::Graphics&);
-    void drawServiceDrawer(juce::Graphics&);
 
     RCABA6AAudioProcessor& audioProcessor;
     BA6AKnobLookAndFeel knobStyle;
     juce::Image faceplate;
     std::array<juce::Slider, 4> mainKnobs;
     std::array<std::unique_ptr<SliderAttachment>, 4> mainBindings;
+    BA6AServicePanel servicePanel;
     std::array<juce::Slider, 6> serviceKnobs;
     std::array<std::unique_ptr<SliderAttachment>, 6> serviceBindings;
     juce::TextButton serviceButton {"SERVICE PANEL"};
