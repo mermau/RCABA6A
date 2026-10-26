@@ -1,122 +1,123 @@
 #!/usr/bin/env python3
-"""Restore old engraved marks in the original photographed rings (build-time only).
-Requires numpy, scipy, OpenCV and Pillow on the GitHub macOS runner.
-Never re-run on the already modified output.
-"""
-import math,sys
-from pathlib import Path
-import numpy as np
-import cv2
-from PIL import Image,ImageDraw,ImageFont
-from scipy.ndimage import median_filter,gaussian_filter
+"""Bake exactly one set of dial markings into the approved photographic panel.
 
-INPUT=tuple(-150.+i*300./24. for i in range(25))
-OUTPUT=tuple(-139.+i*278./15. for i in range(16))
-METER=(-136.,-105.,-75.,-46.,-21.,0.,34.,65.,100.,136.)
-DIALS=((276,649,0),(630,648,1),(1033,649,2),(1385,650,3))
-MODE=(-92.,-48.,0.,42.,79.)
+Run once on the original tracked 1672x941 assets/panel.jpg, before CMake
+embeds BinaryData. No runtime overlays, synthetic discs or rotating photos.
+The metal reconstruction uses the source photo's angular illumination and
+microtexture; the original mounting rims, chassis and BAL-LIMIT are untouched.
+"""
+import math
+import sys
+from pathlib import Path
+import cv2
+import numpy as np
+from scipy.ndimage import gaussian_filter, percentile_filter
+from PIL import Image, ImageDraw, ImageFont
+
+INPUT = tuple(-150.0 + i * 12.5 for i in range(25))
+METER = (-136., -94., -67., -44., -22., 0., 28., 60., 93., 136.)
+OUTPUT = (-139., -120.46667, -101.93333, -83.4, -64.86667, -46.33333,
+          -27.8, -9.26667, 9.26667, 27.8, 46.33333, 64.86667,
+          83.4, 101.93333, 120.46667, 139.)
+DIALS = ((276,649,0,INPUT), (630,648,1,METER), (1385,650,3,OUTPUT))
+
+def reconstruct(original):
+    output = original.astype(np.float32).copy()
+    for index, (cx, cy, selector, angles) in enumerate(DIALS):
+        xx, yy = np.meshgrid(np.arange(cx-154, cx+155, dtype=np.float32),
+                             np.arange(cy-154, cy+155, dtype=np.float32))
+        radius = np.hypot(xx-cx, yy-cy)
+        theta = np.arctan2(xx-cx, cy-yy)
+        radii = np.arange(86,150,.5,dtype=np.float32)
+        azimuth = np.linspace(-math.pi,math.pi,1440,endpoint=False,dtype=np.float32)
+        map_x = cx + np.sin(azimuth[None,:])*radii[:,None]
+        map_y = cy - np.cos(azimuth[None,:])*radii[:,None]
+        photo = cv2.remap(original,map_x,map_y,cv2.INTER_LINEAR,
+                          borderMode=cv2.BORDER_REFLECT).astype(np.float32)
+        # Replace old ink and ticks, not the photographic ring geometry.
+        metal = percentile_filter(photo,percentile=82,size=(3,351,1),mode="wrap")
+        metal = gaussian_filter(metal,sigma=(4,35,0),
+                                mode=("nearest","wrap","nearest"))
+        grain = photo-gaussian_filter(photo,sigma=(.8,4.,0),
+                                      mode=("nearest","wrap","nearest"))
+        rng = np.random.default_rng(6826+index)
+        noise = gaussian_filter(rng.normal(0,2,size=metal.shape).astype(np.float32),
+                                sigma=(.25,.5,0))
+        metal = np.uint8(np.clip(metal+.58*np.clip(grain,-2.4,2.4)+noise,0,255))
+        map_r=np.clip((radius-86.)/.5,0,len(radii)-1).astype(np.float32)
+        map_theta=((theta+math.pi)/(2*math.pi)*len(azimuth)).astype(np.float32)
+        replacement=cv2.remap(metal,map_theta,map_r,cv2.INTER_LINEAR,
+                               borderMode=cv2.BORDER_WRAP)
+        # Keep the old physical rim & shadows, only resurfacing photographed metal.
+        alpha=np.clip(np.minimum((radius-87.)/3.,(149.-radius)/2.5),0,1)
+        roi=output[cy-154:cy+155,cx-154:cx+155]
+        roi[:]=roi*(1-alpha[:,:,None])+replacement*alpha[:,:,None]
+    return np.uint8(np.clip(output,0,255))
 
 def font(size):
-    for path in ('/System/Library/Fonts/Supplemental/Arial.ttf',
-                 '/System/Library/Fonts/Supplemental/Arial Narrow.ttf',
-                 '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-                 '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'):
-        if Path(path).exists(): return ImageFont.truetype(path,size)
-    return ImageFont.load_default()
+    for name in ("/System/Library/Fonts/Supplemental/Arial.ttf",
+                 "/System/Library/Fonts/Supplemental/Arial Narrow.ttf",
+                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                 "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"):
+        if Path(name).exists(): return ImageFont.truetype(name,size)
+    raise RuntimeError("No appropriate TrueType font on the runner")
 
-def restore_metal(original):
-    """Unified photographic restoration of all four ring bands.
-
-    No circular overlays are added: reconstruct just the ink-bearing annular
-    region by robust sampling of genuine metal along each source radius.
-    A continuous annular reconstruction removes the old graduations and
-    residual glyph fragments that the previous hand-picked masks missed.
-    """
-    output=original.copy()
-    h,w=original.shape[:2]
-    for cx,cy,index in DIALS:
-        radius=np.arange(94.,153.,.65,dtype=np.float32)[:,None]
-        angles=np.linspace(-math.pi,math.pi,1440,endpoint=False,
-                           dtype=np.float32)[None,:]
-        xs=(cx+radius*np.sin(angles)).astype(np.float32)
-        ys=(cy-radius*np.cos(angles)).astype(np.float32)
-        sample=cv2.remap(original,xs,ys,cv2.INTER_LINEAR,
-                         borderMode=cv2.BORDER_REFLECT).astype(np.float32)
-        # Angular median rejects printed letters and scratches but preserves
-        # the broad photographic illumination of the metal.
-        median=median_filter(sample,size=(1,115,1),mode='wrap')
-        smooth=gaussian_filter(median,sigma=(1.3,12.,0),
-                              mode=('nearest','wrap','nearest'))
-        # Retain subtle photographic texture rather than flat vector metal.
-        grain=sample-gaussian_filter(sample,sigma=(1.,2.5,0),
-                                     mode=('nearest','wrap','nearest'))
-        clean=np.clip(smooth+np.clip(grain,-1.5,1.5),0,255).astype(np.uint8)
-        x0=max(0,cx-160);x1=min(w,cx+161)
-        y0=max(0,cy-160);y1=min(h,cy+161)
-        yy,xx=np.mgrid[y0:y1,x0:x1].astype(np.float32)
-        dist=np.hypot(xx-cx,yy-cy)
-        angle=np.arctan2(xx-cx,-(yy-cy))
-        px=((angle+math.pi)/(2*math.pi)*1440.).astype(np.float32)
-        py=np.clip((dist-94.)/.65,0,len(radius)-1).astype(np.float32)
-        reconstructed=cv2.remap(clean,px,py,cv2.INTER_LINEAR,
-                                borderMode=cv2.BORDER_WRAP)
-        # Soft blend only at photo-metal ring edges.
-        alpha=(np.clip((dist-94.)/2.5,0,1)*
-               np.clip((153.-dist)/2.5,0,1)).astype(np.float32)
-        region=output[y0:y1,x0:x1]
-        region[:]=np.clip(region*(1-alpha[:,:,None])+
-                          reconstructed*alpha[:,:,None],0,255).astype(np.uint8)
-    return output
-
-def engrave(photo):
-    background=Image.fromarray(cv2.cvtColor(photo,cv2.COLOR_BGR2RGB)).convert('RGBA')
-    layer=Image.new('RGBA',background.size,(0,0,0,0))
-    draw=ImageDraw.Draw(layer)
-    for cx,cy,index in DIALS:
-        angles=INPUT if index==0 else METER if index==1 else MODE if index==2 else OUTPUT
-        for i,angle in enumerate(angles):
-            a=math.radians(angle)
-            major=index!=0 or i%2==0
-            r1,r2=(99.5,112.) if major else (101.,106.)
-            x1,y1=cx+math.sin(a)*r1,cy-math.cos(a)*r1
-            x2,y2=cx+math.sin(a)*r2,cy-math.cos(a)*r2
-            draw.line((x1+.65,y1+.65,x2+.65,y2+.65),fill=(241,229,210,65),width=2)
-            draw.line((x1,y1,x2,y2),fill=(30,25,21,200),width=2 if major else 1)
-            label=None
-            if index==0 and major:
-                value=-24+i*2
-                label=('+'+str(value)) if value>0 else str(value)
-            elif index==1:
-                label=('IN','V1','V2','V3','V4','V5','V6','FIL','COMPR.','BAL.')[i]
-            elif index==2:
-                label=('B','A','OFF','SINGLE','DUAL')[i]
-            elif index==3:
-                label='OFF' if i==0 else str(2*i)
+def engrave(blank):
+    # Typography is rasterized once into the photoreal panel at 3x resolution.
+    scale=3
+    photo=Image.fromarray(cv2.cvtColor(blank,cv2.COLOR_BGR2RGB)).convert("RGBA")
+    ink=Image.new("RGBA",(photo.width*scale,photo.height*scale),(0,0,0,0))
+    draw=ImageDraw.Draw(ink)
+    for cx,cy,control,angles in DIALS:
+        for contact,angle in enumerate(angles):
+            rad=math.radians(angle)
+            major=control!=0 or contact%2==0
+            inner,outer=(96,105.5) if major else (96,100.5)
+            coords=[]
+            for radius in (inner,outer):
+                coords.append((round(scale*(cx+math.sin(rad)*radius)),
+                               round(scale*(cy-math.cos(rad)*radius))))
+            draw.line([(p[0]+1,p[1]+1) for p in coords],fill=(247,235,211,115),
+                      width=2*scale)
+            draw.line(coords,fill=(29,25,21,230),
+                      width=(2 if major else 1)*scale)
+            if control==0:
+                label_value=-24+contact*2
+                label=("+" if label_value>0 else "")+str(label_value) if major else None
+                label_radius=122
+            elif control==1:
+                label=("IN","V1","V2","V3","V4","V5","V6",
+                       "FIL","COMPR","BAL")[contact]
+                label_radius=128
+            else:
+                label="OFF" if contact==0 else str(contact*2)
+                label_radius=122
             if label:
-                rr=125. if index==2 else 126. if index==1 else 128.
-                tx,ty=cx+math.sin(a)*rr,cy-math.cos(a)*rr
-                face=font(12 if index==2 else 13 if index==1 else 14)
-                box=draw.textbbox((0,0),label,font=face)
-                tx-=(box[2]-box[0])*.5
-                ty-=(box[3]-box[1])*.5
-                draw.text((tx+.5,ty+.6),label,font=face,fill=(255,241,211,48))
-                draw.text((tx,ty),label,font=face,fill=(25,21,18,238))
-        caption={0:'INPUT',1:'METER',2:'BAL-LIMIT',3:'OUTPUT'}[index]
-        face=font(20)
-        box=draw.textbbox((0,0),caption,font=face)
-        draw.text((cx-(box[2]-box[0])*.5,cy+114),caption,
-                  font=face,fill=(25,20,17,242))
-    merged=Image.alpha_composite(background,layer).convert('RGB')
-    return cv2.cvtColor(np.array(merged),cv2.COLOR_RGB2BGR)
+                x=cx+math.sin(rad)*label_radius
+                y=cy-math.cos(rad)*label_radius
+                typeface=font((11 if control in (0,1) else 12)*scale)
+                bbox=draw.textbbox((0,0),label,font=typeface)
+                px=x*scale-(bbox[2]-bbox[0])/2-bbox[0]
+                py=y*scale-(bbox[3]-bbox[1])/2-bbox[1]
+                draw.text((px+1,py+1),label,font=typeface,fill=(242,222,189,120))
+                draw.text((px,py),label,font=typeface,fill=(30,26,21,239))
+        label={0:"INPUT",1:"METER",3:"OUTPUT"}[control]
+        typeface=font(16*scale)
+        bbox=draw.textbbox((0,0),label,font=typeface)
+        x=cx*scale-(bbox[2]-bbox[0])/2
+        draw.text((x,(cy+124)*scale-bbox[1]),label,
+                  font=typeface,fill=(28,23,21,232))
+    ink=ink.resize(photo.size,Image.Resampling.LANCZOS)
+    return Image.alpha_composite(photo,ink).convert("RGB")
 
 def main():
-    path=Path(sys.argv[1] if len(sys.argv)>1 else 'assets/panel.jpg')
+    path=Path(sys.argv[1] if len(sys.argv)>1 else "assets/panel.jpg")
     original=cv2.imread(str(path),cv2.IMREAD_COLOR)
     if original is None or original.shape[:2]!=(941,1672):
-        raise RuntimeError('Original source photo must be 1672 x 941')
-    output=engrave(restore_metal(original))
-    if not cv2.imwrite(str(path),output,[cv2.IMWRITE_JPEG_QUALITY,95]):
-        raise RuntimeError('Could not write corrected photographic faceplate')
-    print('Baked photographic dial corrections into',path)
+        raise RuntimeError("Expected approved, unmodified 1672x941 panel.jpg")
+    result=engrave(reconstruct(original))
+    result.save(path,quality=95,subsampling=0,optimize=True)
+    print("Single baked photographic dial layer:",path)
 
-if __name__=='__main__':main()
+if __name__=="__main__":
+    main()
