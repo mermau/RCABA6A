@@ -16,8 +16,8 @@ constexpr float kMinLevel = 1.0e-9f;
 enum class Mode : int { BalanceA = 0, BalanceB, Off, Single, Dual };
 
 struct Controls {
-    int inputStep = 13;    // 0 = full attenuation/mute, 1..20 = 38..0 dB pad
-    int outputStep = 20;   // 0..20 = -20..0 dB stepped output attenuator
+    int inputStep = 15;    // 0..24: -24..+24 label at 2 dB contacts
+    int outputStep = 15;   // 0=OFF; 1..15: 2..30 label at 2 dB contacts
     Mode mode = Mode::Single;
     bool power = true;
     float fineOutputDb = 0.0f; // service adjustment, [-1,+1] dB

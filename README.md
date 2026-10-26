@@ -34,7 +34,7 @@ The plugin artifacts are **`rcaba6a.vst3`**, **`rcaba6a.component`** and **`rcab
 ## Source tree
 
 - `Source/PluginProcessor.*` — JUCE audio processor, parameters and state.
-- `Source/PluginEditor.*` — animated needles, individual rotatable photo knobs, fixed bezels.
+- `Source/PluginEditor.*` — fixed-shading procedural knobs with separately animated markers, fixed bezels.
 - `Source/DSP/BA6AEngine.*` — independent C++ DSP engine.
 - `assets/panel.jpg`, `assets/knob_*.png` — GUI assets embedded with `juce_add_binary_data`.
 - `Tests/` — regression tests (including optional Python/Pillow visual test).
@@ -44,3 +44,12 @@ The plugin artifacts are **`rcaba6a.vst3`**, **`rcaba6a.component`** and **`rcab
 ### Local build and CI limitations
 
 Without downloading JUCE, native standalone DSP and asset tests can be built with `cmake -S . -B build -G Ninja -DRCABA6A_BUILD_PLUGIN=OFF && cmake --build build && ctest --test-dir build --output-on-failure` on a C++17 host. The **full VST3/AU build requires JUCE and a macOS runner**, and is exercised by the GitHub workflow rather than by the native DSP tests. AU runs only in Audio Unit-compatible DAWs. **AAX/Pro Tools is not included.**
+
+## Panel control detents (0.5.0)
+
+- INPUT: -24 to +24, every 2 units (25 steps); +24 gives maximum modeled input drive.
+- OUTPUT: OFF (0) followed by 2 to 30 every 2 units (16 positions); OFF mutes.
+- METER: ten indexed settings, advancing clockwise with increasing index.
+- BAL-LIMIT: clockwise B -> A -> OFF -> SINGLE -> DUAL; vertical drag has reduced sensitivity.
+
+The vintage reference artwork contains several inconsistent engraved digits on the INPUT ring (notably -12/-16); the underlying saved artwork was not altered. The software positions are quantized and anchored to the physical ticks, but fully faithful numeral alignment requires a corrected faceplate master. Old state (v0.4) is migrated on load; existing DAW automation lanes may need inspection because parameter ranges changed.

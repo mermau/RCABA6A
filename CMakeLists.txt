@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 # JUCE builds helper programs using both C and C++.
-project(RCABA6A VERSION 0.4.0 LANGUAGES C CXX)
+project(RCABA6A VERSION 0.5.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,6 +13,7 @@ include(CTest)
 
 set(RCABA6A_DSP_FILES
     Source/DSP/BA6AEngine.h
+    Source/DSP/ControlCalibration.h
     Source/DSP/BA6AEngine.cpp
 )
 set(RCABA6A_PLUGIN_FILES
@@ -30,6 +31,7 @@ set(RCABA6A_ASSETS
 )
 set(RCABA6A_TEST_FILES
     Tests/EngineTests.cpp
+    Tests/ControlCalibrationTests.cpp
     Tests/GUIAssetTests.cpp
 )
 
@@ -52,6 +54,10 @@ if(BUILD_TESTING)
     add_executable(BA6A_Tests Tests/EngineTests.cpp)
     target_link_libraries(BA6A_Tests PRIVATE BA6A_DSP)
     add_test(NAME DSP_Regression COMMAND BA6A_Tests)
+
+    add_executable(BA6A_ControlTests Tests/ControlCalibrationTests.cpp)
+    target_link_libraries(BA6A_ControlTests PRIVATE BA6A_DSP)
+    add_test(NAME Control_Detents_Regression COMMAND BA6A_ControlTests)
 
     add_executable(BA6A_GUI_AssetTests Tests/GUIAssetTests.cpp)
     add_test(NAME GUI_AssetIntegrity
@@ -90,7 +96,7 @@ if(RCABA6A_BUILD_PLUGIN)
     endif()
 
     juce_add_plugin(RCABA6A
-        VERSION 0.4.0
+        VERSION 0.5.0
         COMPANY_NAME "Independent Audio"
         BUNDLE_ID "audio.independent.rcaba6a"
         PLUGIN_MANUFACTURER_CODE Iaau

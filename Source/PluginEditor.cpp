@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include "DSP/ControlCalibration.h"
 
 namespace {
 constexpr float artWidth = 1672.0f;
@@ -17,21 +18,9 @@ constexpr std::array<std::pair<float,float>, 4> knobOrigins{{
     {276.0f,649.0f}, {630.0f,648.0f}, {1033.0f,649.0f}, {1385.0f,650.0f}
 }};
 
-// Clockwise degrees relative to 12 o'clock, measured on the artwork.
-// The meter artwork has imperfect legends; see docs/GUI_CALIBRATION.md.
-float targetAngle(int n, float pos) noexcept {
-    pos = juce::jlimit(0.0f, 1.0f, pos);
-    if (n == 0) return -148.0f + pos * 296.0f; // input -24 to +24
-    if (n == 3) return -142.0f + pos * 284.0f; // output OFF to 30
-    if (n == 2) {
-        // APVTS mode order: A, B, OFF, SINGLE, DUAL. Mechanically non-monotonic.
-        constexpr float angles[]{-49.0f, -91.0f, 0.0f, 42.0f, 79.0f};
-        return angles[juce::jlimit(0,4,juce::roundToInt(pos*4.0f))];
-    }
-    // APVTS meter order: V1..V6, FIL, COARSE BAL, FINE BAL, GR.
-    constexpr float angles[]{-96.0f,-64.0f,-48.0f,-34.0f,
-                              0.0f,37.0f,65.0f,91.0f,119.0f,-136.0f};
-    return angles[juce::jlimit(0,9,juce::roundToInt(pos*9.0f))];
+// The pointer follows an exact discrete calibration position.
+float targetAngle(int knob,float pos) noexcept {
+    return ba6a::panel::angleForKnob(knob,pos);
 }
 } // namespace
 
@@ -182,7 +171,13 @@ void RCABA6AAudioProcessorEditor::configureKnob(
     juce::Slider& s, const char* parameter,
     std::unique_ptr<SliderAttachment>& attachment, const juce::String& id) {
     s.setComponentID(id);
-    s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    // Vertical dragging prevents diagonal drift on multi-position selectors.
+    const auto discrete = juce::String(parameter)=="mode" || juce::String(parameter)=="meter";
+    s.setSliderStyle(discrete ? juce::Slider::RotaryVerticalDrag
+                              : juce::Slider::RotaryHorizontalVerticalDrag);
+    s.setMouseDragSensitivity(juce::String(parameter)=="mode" ? 300
+                              : juce::String(parameter)=="meter" ? 420
+                              : juce::String(parameter)=="input" ? 560 : 460);
     s.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);
     s.setRotaryParameters(-.79f*pi,.79f*pi,true);
     s.setLookAndFeel(&knobStyle);

@@ -7,11 +7,11 @@ float BA6AEngine::smoothCoefficient(float seconds, double sr) noexcept {
 }
 
 float BA6AEngine::inputAttenuationDb(int step) noexcept {
-    if (step <= 0) return -120.0f;
-    return -2.0f * static_cast<float>(20 - std::clamp(step, 1, 20));
+    return -2.0f * static_cast<float>(24 - std::clamp(step, 0, 24));
 }
 float BA6AEngine::outputAttenuationDb(int step) noexcept {
-    return -static_cast<float>(20 - std::clamp(step, 0, 20));
+    if (step <= 0) return -120.0f; // OFF
+    return -2.0f * static_cast<float>(15 - std::clamp(step, 1, 15));
 }
 
 void BA6AEngine::prepare(double newSampleRate) noexcept {
@@ -36,12 +36,12 @@ void BA6AEngine::reset() noexcept {
 
 void BA6AEngine::setControls(const Controls& incoming) noexcept {
     controls = incoming;
-    controls.inputStep = std::clamp(controls.inputStep, 0, 20);
-    controls.outputStep = std::clamp(controls.outputStep, 0, 20);
+    controls.inputStep = std::clamp(controls.inputStep, 0, 24);
+    controls.outputStep = std::clamp(controls.outputStep, 0, 15);
     padGain = dbToGain(inputAttenuationDb(controls.inputStep));
-    if (controls.inputStep == 0) padGain = 0.0f;
-    outGain = dbToGain(outputAttenuationDb(controls.outputStep) +
-                       std::clamp(controls.fineOutputDb, -1.0f, 1.0f));
+    outGain = controls.outputStep==0 ? 0.0f :
+        dbToGain(outputAttenuationDb(controls.outputStep) +
+                 std::clamp(controls.fineOutputDb,-1.0f,1.0f));
 }
 
 float BA6AEngine::hp(float x, HPState& s) noexcept {

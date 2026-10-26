@@ -30,13 +30,13 @@ static float measureSine(ba6a::BA6AEngine& engine, float magnitude,
 }
 int main() {
     using namespace ba6a;
-    require(BA6AEngine::inputAttenuationDb(20) == 0.0f, "20th input contact: no attenuation");
-    require(BA6AEngine::inputAttenuationDb(1) == -38.0f, "input switch 2 dB steps");
-    require(BA6AEngine::inputAttenuationDb(0) <= -100.0f, "input zero is off");
-    require(BA6AEngine::outputAttenuationDb(19) == -1.0f, "output switch 1 dB steps");
-    require(BA6AEngine::outputAttenuationDb(0) == -20.0f, "output has 20 dB span");
+    require(BA6AEngine::inputAttenuationDb(24) == 0.0f, "input +24 maximum drive");
+    require(BA6AEngine::inputAttenuationDb(23) == -2.0f, "input switch 2 dB steps");
+    require(BA6AEngine::inputAttenuationDb(0) == -48.0f, "input -24 minimum drive");
+    require(BA6AEngine::outputAttenuationDb(14) == -2.0f, "output switch 2 dB steps");
+    require(BA6AEngine::outputAttenuationDb(0) <= -100.0f, "output OFF");
     BA6AEngine engine; engine.prepare(48000.0);
-    Controls c; c.inputStep = 20; c.outputStep = 20; c.mode = Mode::Single;
+    Controls c; c.inputStep = 24; c.outputStep = 15; c.mode = Mode::Single;
     engine.setControls(c);
     const float low = measureSine(engine, 0.005f);
     engine.reset(); const float high = measureSine(engine, 0.4f);
@@ -76,7 +76,7 @@ int main() {
     // recovery must be materially slower than SINGLE recovery.
     auto residualAfterSustain = [](Mode mode) {
         BA6AEngine e; e.prepare(48000.0);
-        Controls ctrl; ctrl.inputStep=20; ctrl.mode=mode; e.setControls(ctrl);
+        Controls ctrl; ctrl.inputStep=24; ctrl.mode=mode; e.setControls(ctrl);
         std::vector<float> tone(48000*3);
         for (std::size_t i=0; i<tone.size(); ++i)
             tone[i]=0.8f * std::sin(2.0 * 3.141592653589793 * 1000.0*i / 48000.0);
