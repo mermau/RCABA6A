@@ -1,123 +1,175 @@
 #!/usr/bin/env python3
-"""Bake exactly one set of dial markings into the approved photographic panel.
+"""Rebuild four matching, photorealistic dial scales on the approved panel.
 
-Run once on the original tracked 1672x941 assets/panel.jpg, before CMake
-embeds BinaryData. No runtime overlays, synthetic discs or rotating photos.
-The metal reconstruction uses the source photo's angular illumination and
-microtexture; the original mounting rims, chassis and BAL-LIMIT are untouched.
+Run ONCE after checkout and before JUCE BinaryData generation. Always start
+from the original, tracked assets/panel.jpg, never a previously processed JPG.
+
+The source rings are photographic; this code preserves the chassis, outer
+bezel shadows and panel aging. It uses one clean metal colour/lighting profile
+for ALL FOUR rings, erases *all* old ink/tick regions (including the baseline
+and inner ticks), and prints the calibrated ticks just once.
 """
 import math
 import sys
 from pathlib import Path
+
 import cv2
 import numpy as np
-from scipy.ndimage import gaussian_filter, percentile_filter
 from PIL import Image, ImageDraw, ImageFont
+from scipy.ndimage import gaussian_filter
 
-INPUT = tuple(-150.0 + i * 12.5 for i in range(25))
-METER = (-136., -94., -67., -44., -22., 0., 28., 60., 93., 136.)
-OUTPUT = (-139., -120.46667, -101.93333, -83.4, -64.86667, -46.33333,
-          -27.8, -9.26667, 9.26667, 27.8, 46.33333, 64.86667,
-          83.4, 101.93333, 120.46667, 139.)
-DIALS = ((276,649,0,INPUT), (630,648,1,METER), (1385,650,3,OUTPUT))
-
-def reconstruct(original):
-    output = original.astype(np.float32).copy()
-    for index, (cx, cy, selector, angles) in enumerate(DIALS):
-        xx, yy = np.meshgrid(np.arange(cx-154, cx+155, dtype=np.float32),
-                             np.arange(cy-154, cy+155, dtype=np.float32))
-        radius = np.hypot(xx-cx, yy-cy)
-        theta = np.arctan2(xx-cx, cy-yy)
-        radii = np.arange(86,150,.5,dtype=np.float32)
-        azimuth = np.linspace(-math.pi,math.pi,1440,endpoint=False,dtype=np.float32)
-        map_x = cx + np.sin(azimuth[None,:])*radii[:,None]
-        map_y = cy - np.cos(azimuth[None,:])*radii[:,None]
-        photo = cv2.remap(original,map_x,map_y,cv2.INTER_LINEAR,
-                          borderMode=cv2.BORDER_REFLECT).astype(np.float32)
-        # Replace old ink and ticks, not the photographic ring geometry.
-        metal = percentile_filter(photo,percentile=82,size=(3,351,1),mode="wrap")
-        metal = gaussian_filter(metal,sigma=(4,35,0),
-                                mode=("nearest","wrap","nearest"))
-        grain = photo-gaussian_filter(photo,sigma=(.8,4.,0),
-                                      mode=("nearest","wrap","nearest"))
-        rng = np.random.default_rng(6826+index)
-        noise = gaussian_filter(rng.normal(0,2,size=metal.shape).astype(np.float32),
-                                sigma=(.25,.5,0))
-        metal = np.uint8(np.clip(metal+.58*np.clip(grain,-2.4,2.4)+noise,0,255))
-        map_r=np.clip((radius-86.)/.5,0,len(radii)-1).astype(np.float32)
-        map_theta=((theta+math.pi)/(2*math.pi)*len(azimuth)).astype(np.float32)
-        replacement=cv2.remap(metal,map_theta,map_r,cv2.INTER_LINEAR,
-                               borderMode=cv2.BORDER_WRAP)
-        # Keep the old physical rim & shadows, only resurfacing photographed metal.
-        alpha=np.clip(np.minimum((radius-87.)/3.,(149.-radius)/2.5),0,1)
-        roi=output[cy-154:cy+155,cx-154:cx+155]
-        roi[:]=roi*(1-alpha[:,:,None])+replacement*alpha[:,:,None]
-    return np.uint8(np.clip(output,0,255))
+RINGS = ((276, 649, 0), (630, 648, 1), (1033, 649, 2), (1385, 650, 3))
+ANGLES = {
+    0: tuple(-150.0 + i * 12.5 for i in range(25)),
+    1: (-136., -94., -67., -44., -22., 0., 28., 60., 93., 136.),
+    2: (-92., -48., 0., 42., 79.),
+    3: tuple(-139.0 + i * (278.0 / 15.0) for i in range(16)),
+}
+METERS = ("IN", "V1", "V2", "V3", "V4", "V5", "V6", "FIL", "CMP", "BAL")
+MODES = ("B", "A", "OFF", "SINGLE", "DUAL")
 
 def font(size):
-    for name in ("/System/Library/Fonts/Supplemental/Arial.ttf",
-                 "/System/Library/Fonts/Supplemental/Arial Narrow.ttf",
-                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                 "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"):
-        if Path(name).exists(): return ImageFont.truetype(name,size)
-    raise RuntimeError("No appropriate TrueType font on the runner")
+    for path in (
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Narrow.ttf",
+        "/System/Library/Fonts/Supplemental/Helvetica.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+    ):
+        if Path(path).exists():
+            return ImageFont.truetype(path, size)
+    raise RuntimeError("No TrueType font available")
 
-def engrave(blank):
-    # Typography is rasterized once into the photoreal panel at 3x resolution.
-    scale=3
-    photo=Image.fromarray(cv2.cvtColor(blank,cv2.COLOR_BGR2RGB)).convert("RGBA")
-    ink=Image.new("RGBA",(photo.width*scale,photo.height*scale),(0,0,0,0))
-    draw=ImageDraw.Draw(ink)
-    for cx,cy,control,angles in DIALS:
-        for contact,angle in enumerate(angles):
-            rad=math.radians(angle)
-            major=control!=0 or contact%2==0
-            inner,outer=(96,105.5) if major else (96,100.5)
-            coords=[]
-            for radius in (inner,outer):
-                coords.append((round(scale*(cx+math.sin(rad)*radius)),
-                               round(scale*(cy-math.cos(rad)*radius))))
-            draw.line([(p[0]+1,p[1]+1) for p in coords],fill=(247,235,211,115),
-                      width=2*scale)
-            draw.line(coords,fill=(29,25,21,230),
-                      width=(2 if major else 1)*scale)
-            if control==0:
-                label_value=-24+contact*2
-                label=("+" if label_value>0 else "")+str(label_value) if major else None
-                label_radius=122
-            elif control==1:
-                label=("IN","V1","V2","V3","V4","V5","V6",
-                       "FIL","COMPR","BAL")[contact]
-                label_radius=128
-            else:
-                label="OFF" if contact==0 else str(contact*2)
-                label_radius=122
-            if label:
-                x=cx+math.sin(rad)*label_radius
-                y=cy-math.cos(rad)*label_radius
-                typeface=font((11 if control in (0,1) else 12)*scale)
-                bbox=draw.textbbox((0,0),label,font=typeface)
-                px=x*scale-(bbox[2]-bbox[0])/2-bbox[0]
-                py=y*scale-(bbox[3]-bbox[1])/2-bbox[1]
-                draw.text((px+1,py+1),label,font=typeface,fill=(242,222,189,120))
-                draw.text((px,py),label,font=typeface,fill=(30,26,21,239))
-        label={0:"INPUT",1:"METER",3:"OUTPUT"}[control]
-        typeface=font(16*scale)
-        bbox=draw.textbbox((0,0),label,font=typeface)
-        x=cx*scale-(bbox[2]-bbox[0])/2
-        draw.text((x,(cy+124)*scale-bbox[1]),label,
-                  font=typeface,fill=(28,23,21,232))
-    ink=ink.resize(photo.size,Image.Resampling.LANCZOS)
-    return Image.alpha_composite(photo,ink).convert("RGB")
+def restore_metal(original):
+    """Cover the complete obsolete-ink annulus, never a second metal disc."""
+    output = original.copy()
+    r0, r1, nang = 87.0, 153.0, 1440
+    radii = np.linspace(r0, r1, 133, dtype=np.float32)[:, None]
+    az = np.linspace(-math.pi, math.pi, nang, endpoint=False,
+                     dtype=np.float32)[None, :]
+
+    # BAL-LIMIT was the best-preserved original photographic metal. Build a
+    # common clean metal profile from the *unprinted* bright pixels, then use
+    # it for every bezel, including BAL-LIMIT itself.
+    donor_x = (1033.0 + np.sin(az) * radii).astype(np.float32)
+    donor_y = (649.0 - np.cos(az) * radii).astype(np.float32)
+    samples = cv2.remap(original, donor_x, donor_y, cv2.INTER_LINEAR,
+                        borderMode=cv2.BORDER_REFLECT).astype(np.float32)
+    profile = np.percentile(samples, 70, axis=1)
+    profile = gaussian_filter(profile, sigma=(2.0, 0.0))
+    metal = np.repeat(profile[:, None, :], nang, axis=1)
+    metal += np.cos(az[:, :, None] + .6) * .7
+    metal += np.sin(az[:, :, None] * 2.0 - .2) * .6
+
+    for index, (cx, cy, selector) in enumerate(RINGS):
+        y0, y1 = max(0, cy - 159), min(original.shape[0], cy + 160)
+        x0, x1 = max(0, cx - 159), min(original.shape[1], cx + 160)
+        yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+        radius = np.hypot(xx - cx, yy - cy)
+        angle = np.arctan2(xx - cx, cy - yy)
+        theta_px = np.mod((angle + math.pi) / (2.0 * math.pi) * nang
+                          + index * 79, nang).astype(np.float32)
+        # The edge area was also printed on the original: sample the unprinted
+        # middle metal near both boundaries, rather than returning old ink.
+        texture_r = np.clip(radius, 100.0, 141.0)
+        radial_px = ((texture_r - r0) / (r1 - r0)
+                     * (metal.shape[0] - 1)).astype(np.float32)
+        texture = cv2.remap(metal, theta_px, radial_px, cv2.INTER_LINEAR,
+                            borderMode=cv2.BORDER_WRAP)
+        rng = np.random.default_rng(120 + index)
+        grain = gaussian_filter(
+            rng.normal(0.0, 1.7, radius.shape).astype(np.float32), .38)
+        texture = np.clip(texture + grain[:, :, None], 0, 255)
+
+        # Crucial change: old tick marks begin near r=90, while old captions
+        # leave fragments near r=149. The former 94..145 mask missed BOTH.
+        alpha = (np.clip((radius - 85.0) / 3.5, 0.0, 1.0) *
+                 np.clip((154.5 - radius) / 3.8, 0.0, 1.0))
+        region = output[y0:y1, x0:x1]
+        region[:] = np.clip(region * (1.0 - alpha[:, :, None])
+                            + texture * alpha[:, :, None], 0, 255
+                            ).astype(np.uint8)
+    return output
+
+def print_scales(blank):
+    photo = Image.fromarray(cv2.cvtColor(blank, cv2.COLOR_BGR2RGB)).convert("RGBA")
+    scale = 4
+    ink = Image.new("RGBA", (photo.width * scale, photo.height * scale),
+                    (0, 0, 0, 0))
+    draw = ImageDraw.Draw(ink)
+
+    for cx, cy, selector in RINGS:
+        for i, deg in enumerate(ANGLES[selector]):
+            a = math.radians(deg)
+            major = selector != 0 or i % 2 == 0
+            inner = 98.0
+            outer = 110.0 if major else 103.0
+            x1 = (cx + math.sin(a) * inner) * scale
+            y1 = (cy - math.cos(a) * inner) * scale
+            x2 = (cx + math.sin(a) * outer) * scale
+            y2 = (cy - math.cos(a) * outer) * scale
+            draw.line((x1 + 2, y1 + 2, x2 + 2, y2 + 2),
+                      fill=(250, 233, 206, 64),
+                      width=(2 if major else 1) * scale)
+            draw.line((x1, y1, x2, y2), fill=(32, 27, 22, 230),
+                      width=(2 if major else 1) * scale)
+
+            label = None
+            if selector == 0 and major:
+                value = -24 + 2 * i
+                label = ("+" if value > 0 else "") + str(value)
+            elif selector == 1:
+                label = METERS[i]
+            elif selector == 2:
+                label = MODES[i]
+            elif selector == 3:
+                label = "OFF" if i == 0 else str(i * 2)
+            if label is None:
+                continue
+
+            label_radius = (132 if selector == 2 and len(label) > 3
+                            else 125 if selector == 2 else 126)
+            x = (cx + math.sin(a) * label_radius) * scale
+            y = (cy - math.cos(a) * label_radius) * scale
+            face = font((12 if selector in (0, 2, 3) else 11) * scale)
+            bounds = draw.textbbox((0, 0), label, font=face)
+            tx = x - (bounds[2] - bounds[0]) / 2 - bounds[0]
+            ty = y - (bounds[3] - bounds[1]) / 2 - bounds[1]
+            draw.text((tx + 1, ty + 1), label, font=face,
+                      fill=(243, 225, 190, 81))
+            draw.text((tx, ty), label, font=face,
+                      fill=(32, 27, 22, 244))
+
+        title = ("INPUT", "METER", "BAL-LIMIT", "OUTPUT")[selector]
+        face = font((15 if selector == 2 else 16) * scale)
+        bounds = draw.textbbox((0, 0), title, font=face)
+        tx = (cx - (bounds[2] - bounds[0]) / (2 * scale)) * scale
+        ty = (cy + 127) * scale - bounds[1]
+        draw.text((tx, ty), title, font=face, fill=(28, 22, 18, 228))
+
+    overlay = ink.resize(photo.size, Image.Resampling.LANCZOS)
+    return Image.alpha_composite(photo, overlay).convert("RGB")
 
 def main():
-    path=Path(sys.argv[1] if len(sys.argv)>1 else "assets/panel.jpg")
-    original=cv2.imread(str(path),cv2.IMREAD_COLOR)
-    if original is None or original.shape[:2]!=(941,1672):
+    path = Path(sys.argv[1] if len(sys.argv) > 1 else "assets/panel.jpg")
+    original = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if original is None or original.shape[:2] != (941, 1672):
         raise RuntimeError("Expected approved, unmodified 1672x941 panel.jpg")
-    result=engrave(reconstruct(original))
-    result.save(path,quality=95,subsampling=0,optimize=True)
-    print("Single baked photographic dial layer:",path)
+    blank = restore_metal(original)
+    # Regression: each of the four annular bands MUST be materially rewritten.
+    for cx, cy, selector in RINGS:
+        y, x = np.ogrid[:original.shape[0], :original.shape[1]]
+        radius = np.hypot(x - cx, y - cy)
+        band = (radius > 100) & (radius < 140)
+        mean_delta = np.abs(blank.astype(np.int16) -
+                            original.astype(np.int16))[band].mean()
+        if mean_delta < 4.0:
+            raise AssertionError(
+                f"Dial {selector} was not actually cleaned (difference {mean_delta:.2f})")
 
-if __name__=="__main__":
+    result = print_scales(blank)
+    result.save(path, quality=95, subsampling=0, optimize=True)
+    print("Verified four independently cleaned/photo-matched dial rings:", path)
+
+if __name__ == "__main__":
     main()
