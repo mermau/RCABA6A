@@ -27,6 +27,7 @@ private:
                        std::unique_ptr<SliderAttachment>& attachment,
                        const juce::String& componentID);
     void drawNeedle(juce::Graphics&);
+    void drawCalibratedDials(juce::Graphics&);
     void drawServiceDrawer(juce::Graphics&);
 
     RCABA6AAudioProcessor& audioProcessor;

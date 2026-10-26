@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 # JUCE builds helper programs using both C and C++.
-project(RCABA6A VERSION 0.5.0 LANGUAGES C CXX)
+project(RCABA6A VERSION 0.6.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -95,8 +95,12 @@ if(RCABA6A_BUILD_PLUGIN)
         list(APPEND RCABA6A_FORMATS AU)
     endif()
 
+    set(RCABA6A_ICON_ARGS)
+    if(APPLE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/app_icon.png")
+        list(APPEND RCABA6A_ICON_ARGS ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/assets/app_icon.png")
+    endif()
     juce_add_plugin(RCABA6A
-        VERSION 0.5.0
+        VERSION 0.6.0
         COMPANY_NAME "Independent Audio"
         BUNDLE_ID "audio.independent.rcaba6a"
         PLUGIN_MANUFACTURER_CODE Iaau
@@ -104,6 +108,7 @@ if(RCABA6A_BUILD_PLUGIN)
         FORMATS ${RCABA6A_FORMATS}
         PRODUCT_NAME "rcaba6a"
         PLUGIN_NAME "RCA BA-6A"
+        ${RCABA6A_ICON_ARGS}
         DESCRIPTION "RCA BA-6A inspired variable-gain tube limiting amplifier"
         IS_SYNTH FALSE
         NEEDS_MIDI_INPUT FALSE

@@ -53,3 +53,7 @@ Without downloading JUCE, native standalone DSP and asset tests can be built wit
 - BAL-LIMIT: clockwise B -> A -> OFF -> SINGLE -> DUAL; vertical drag has reduced sensitivity.
 
 The vintage reference artwork contains several inconsistent engraved digits on the INPUT ring (notably -12/-16); the underlying saved artwork was not altered. The software positions are quantized and anchored to the physical ticks, but fully faithful numeral alignment requires a corrected faceplate master. Old state (v0.4) is migrated on load; existing DAW automation lanes may need inspection because parameter ranges changed.
+
+## v0.6.0 — accurate rings and app icon
+
+INPUT starts at 0, OUTPUT at OFF, BAL-LIMIT at OFF, and METER at IN. The three photographic dial markings are overpainted with matching brushed-metal static calibrated dial graphics from `PluginEditor.cpp`; engraved label and moving pointer share `ControlCalibration.h`. The macOS runner generates a standalone icon from `assets/generate_app_icon.swift` using built-in AppKit before configuring CMake. Existing saved presets keep their settings through state migration.

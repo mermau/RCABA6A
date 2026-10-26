@@ -228,8 +228,72 @@ void RCABA6AAudioProcessorEditor::paint(juce::Graphics& g) {
         static_cast<float>(getWidth())/artWidth,
         static_cast<float>(getHeight())/artHeight));
     if (faceplate.isValid()) g.drawImageAt(faceplate,0,0);
+    drawCalibratedDials(g);
     drawNeedle(g);
     drawServiceDrawer(g);
+}
+
+// Static calibrated metal bezels. Printed ticks and pointer both derive from
+// the same detent mapping, eliminating disagreement with legacy artwork.
+void RCABA6AAudioProcessorEditor::drawCalibratedDials(juce::Graphics& g) {
+    struct Dial {float cx,cy;int knob;const char* title;};
+    constexpr Dial dials[]{{276.f,649.f,0,"INPUT"},
+                           {630.f,648.f,1,"METER"},
+                           {1385.f,650.f,3,"OUTPUT"}};
+    for(const auto& d:dials) {
+        const float cx=d.cx,cy=d.cy,r=145.f;
+        auto outer=juce::Rectangle<float>(cx-r,cy-r,2*r,2*r);
+        g.setColour(juce::Colours::black.withAlpha(.4f));
+        g.fillEllipse(outer.translated(1.f,3.f));
+        juce::ColourGradient metal(juce::Colour(0xffd9cdbc),cx-r,cy-r,
+                                   juce::Colour(0xff958b7d),cx+r,cy+r,false);
+        metal.addColour(.53,juce::Colour(0xffb6ac9f));
+        g.setGradientFill(metal);
+        g.fillEllipse(outer);
+        g.setColour(juce::Colour(0xff645c51).withAlpha(.35f));
+        g.drawEllipse(outer.reduced(2.f),1.5f);
+        for(int i=0;i<24;++i) {
+            const float rr=104.f+i*1.5f;
+            g.setColour(juce::Colour(i%4==0?0xfff0e4d0:0xff554e44).withAlpha(.035f));
+            g.drawEllipse(juce::Rectangle<float>(cx-rr,cy-rr,2*rr,2*rr),.6f);
+        }
+        const int count=d.knob==0?25:(d.knob==3?16:10);
+        for(int i=0;i<count;++i) {
+            const auto deg=ba6a::panel::angleForKnob(d.knob,
+                                          static_cast<float>(i)/static_cast<float>(count-1));
+            const float rad=toRad(deg);
+            const bool labelled=d.knob!=0 || (i%2==0);
+            const float inside=96.f,outside=labelled?109.f:103.f;
+            g.setColour(juce::Colour(0xff332c26));
+            g.drawLine(cx+std::sin(rad)*inside,cy-std::cos(rad)*inside,
+                       cx+std::sin(rad)*outside,cy-std::cos(rad)*outside,
+                       labelled?2.1f:1.1f);
+            juce::String label;
+            if(d.knob==0 && labelled) {
+                const int value=-24+2*i;
+                label=value>0 ? "+"+juce::String(value) : juce::String(value);
+            } else if(d.knob==3) {
+                label=i==0?"OFF":juce::String(2*i);
+            } else if(d.knob==1) {
+                constexpr const char* labels[]{"IN","V1","V2","V3","V4",
+                                    "V5","V6","FIL","COMPR","BAL"};
+                label=labels[i];
+            }
+            if(label.isNotEmpty()) {
+                const float tx=cx+std::sin(rad)*126.f;
+                const float ty=cy-std::cos(rad)*126.f;
+                const float textWidth=d.knob==1?46.f:39.f;
+                g.setFont(juce::Font(juce::FontOptions(d.knob==1?12.f:13.f)));
+                g.drawFittedText(label,juce::roundToInt(tx-textWidth/2.f),
+                         juce::roundToInt(ty-9.f),juce::roundToInt(textWidth),18,
+                         juce::Justification::centred,1);
+            }
+        }
+        g.setColour(juce::Colour(0xff29231d));
+        g.setFont(juce::Font(juce::FontOptions(17.f)));
+        g.drawFittedText(d.title,juce::roundToInt(cx-67.f),juce::roundToInt(cy+127.f),
+                         134,23,juce::Justification::centred,1);
+    }
 }
 
 void RCABA6AAudioProcessorEditor::drawNeedle(juce::Graphics& g) {

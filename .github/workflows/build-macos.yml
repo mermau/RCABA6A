@@ -31,6 +31,13 @@ jobs:
           ninja --version
           xcodebuild -version
 
+      - name: Create app icon using macOS built-in Swift
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift assets/generate_app_icon.swift assets/app_icon.png
+          test -s assets/app_icon.png
+
       - name: Configure JUCE 8.0.15 via FetchContent
         shell: bash
         run: |
