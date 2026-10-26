@@ -48,7 +48,7 @@ jobs:
           set -euo pipefail
           cmake --build build --config Release \
             --target RCABA6A_VST3 RCABA6A_AU RCABA6A_Standalone \
-                     BA6A_Tests BA6A_GUI_AssetTests \
+                     BA6A_Tests BA6A_ControlTests BA6A_GUI_AssetTests \
             --parallel 2
 
       - name: Run tests
