@@ -12,70 +12,130 @@ constexpr float toRad(float degrees) noexcept { return degrees * pi / 180.0f; }
 const juce::Colour darkMetal{0xff131618};
 const juce::Colour ivory{0xffe9d4ae};
 
-// Hand-measured painted pointer angle (relative to 12 o'clock) in each sprite.
-constexpr std::array<float, 4> originalPointer{34.0f,-137.0f,70.0f,16.0f};
+// Artist-approved faceplate remains stationary, including engraved scales and shadows.
 constexpr std::array<std::pair<float,float>, 4> knobOrigins{{
-    {278.0f,649.0f}, {630.0f,648.0f}, {1045.0f,649.0f}, {1387.0f,650.0f}
+    {276.0f,649.0f}, {630.0f,648.0f}, {1033.0f,649.0f}, {1385.0f,650.0f}
 }};
+
+// Clockwise degrees relative to 12 o'clock, measured on the artwork.
+// The meter artwork has imperfect legends; see docs/GUI_CALIBRATION.md.
 float targetAngle(int n, float pos) noexcept {
     pos = juce::jlimit(0.0f, 1.0f, pos);
-    if (n == 0 || n == 3) // 20-position stepped attenuators
-        return -143.0f + pos * 286.0f;
-    if (n == 2) { // RCA front-panel mechanical order is NOT parameter-list order.
-        constexpr float mode[] = {-47.f, -94.f, 0.f, 46.f, 79.f};
-        return mode[juce::jlimit(0,4,juce::roundToInt(pos*4.0f))];
+    if (n == 0) return -148.0f + pos * 296.0f; // input -24 to +24
+    if (n == 3) return -142.0f + pos * 284.0f; // output OFF to 30
+    if (n == 2) {
+        // APVTS mode order: A, B, OFF, SINGLE, DUAL. Mechanically non-monotonic.
+        constexpr float angles[]{-49.0f, -91.0f, 0.0f, 42.0f, 79.0f};
+        return angles[juce::jlimit(0,4,juce::roundToInt(pos*4.0f))];
     }
-    constexpr float meter[] = {-137.f,-106.f,-77.f,-46.f,0.f,43.f,77.f,99.f,119.f,137.f};
-    return meter[juce::jlimit(0,9,juce::roundToInt(pos*9.0f))];
+    // APVTS meter order: V1..V6, FIL, COARSE BAL, FINE BAL, GR.
+    constexpr float angles[]{-96.0f,-64.0f,-48.0f,-34.0f,
+                              0.0f,37.0f,65.0f,91.0f,119.0f,-136.0f};
+    return angles[juce::jlimit(0,9,juce::roundToInt(pos*9.0f))];
 }
 } // namespace
 
 void BA6AKnobLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y,
     int width, int height, float pos, float, float, juce::Slider& slider) {
+    const float cx = x + width * 0.5f;
+    const float cy = y + height * 0.5f;
+    const float componentSize = static_cast<float>(std::min(width,height));
     const auto id = slider.getComponentID();
     if (id.startsWith("photo")) {
         const int n = id.substring(5).getIntValue();
-        if (juce::isPositiveAndBelow(n, 4) && sprites[static_cast<std::size_t>(n)].isValid()) {
-            const juce::Graphics::ScopedSaveState save(g);
-            const float centerX = x + width * .5f;
-            const float centerY = y + height * .5f;
-            // RGBA alpha must end at radius 79 px in the unscaled 206px sprite.
-            // The complete numbered bezel and its cast shadow stay in panel.jpg,
-            // never under this rotation transform. Regression tested with
-            // radically different control positions in StaticBezelTests.py.
-            g.addTransform(juce::AffineTransform::rotation(
-                toRad(targetAngle(n, pos)-originalPointer[static_cast<std::size_t>(n)]),
-                centerX, centerY));
-            g.drawImageWithin(sprites[static_cast<std::size_t>(n)], x, y, width, height,
-                              juce::RectanglePlacement::stretchToFit, false);
+        if (juce::isPositiveAndBelow(n,4)) {
+            // IMPORTANT: no photograph, bezel, panel shadow or lighting is rotated.
+            // A fixed shaded mechanical body obscures old baked-in white pointers.
+            // Only the independently painted enamel indicator changes angle.
+            const float r = componentSize * 0.445f;
+            juce::Path fluted;
+            for (int i=0; i<=160; ++i) {
+                const float a = (2.0f * pi * i) / 160.0f;
+                const float fluting = 0.975f + 0.025f * std::cos(a * 10.0f);
+                const float rr = r * fluting;
+                const float px = cx + std::sin(a) * rr;
+                const float py = cy - std::cos(a) * rr;
+                if (i == 0) fluted.startNewSubPath(px,py);
+                else fluted.lineTo(px,py);
+            }
+            fluted.closeSubPath();
+
+            // Stationary cast shadow and relief keep the virtual light fixed.
+            g.setColour(juce::Colours::black.withAlpha(0.40f));
+            g.fillPath(fluted, juce::AffineTransform::translation(2.5f,4.5f));
+            juce::ColourGradient outer(juce::Colour(0xff4b4742),cx-r*0.68f,cy-r*0.78f,
+                                        juce::Colour(0xff090a0b),cx+r*0.70f,cy+r*0.90f,false);
+            outer.addColour(0.22,juce::Colour(0xff32312f));
+            outer.addColour(0.63,juce::Colour(0xff161719));
+            g.setGradientFill(outer);
+            g.fillPath(fluted);
+
+            g.setColour(juce::Colour(0xff08090b));
+            g.strokePath(fluted,juce::PathStrokeType(1.6f));
+            g.setColour(juce::Colour(0xffa29a88).withAlpha(0.24f));
+            juce::Path bevel;
+            bevel.addArc(cx-r*0.93f,cy-r*0.93f,r*1.86f,r*1.86f,
+                         pi*1.16f,pi*1.85f,true);
+            g.strokePath(bevel,juce::PathStrokeType(2.2f));
+
+            auto face = juce::Rectangle<float>(cx-r*0.79f,cy-r*0.79f,
+                                               r*1.58f,r*1.58f);
+            juce::ColourGradient faceLight(juce::Colour(0xff333231),
+                                           cx-r*0.53f,cy-r*0.71f,
+                                           juce::Colour(0xff0d0e10),
+                                           cx+r*0.58f,cy+r*0.78f,false);
+            faceLight.addColour(0.48,juce::Colour(0xff1a1b1d));
+            g.setGradientFill(faceLight);
+            g.fillEllipse(face);
+            g.setColour(juce::Colour(0xff090a0b).withAlpha(0.77f));
+            g.drawEllipse(face,2.0f);
+
+            // Fixed specular arc; no rotation transform applied to this layer.
+            juce::Path spec;
+            spec.addArc(face.getX()+2.f,face.getY()+2.f,
+                        face.getWidth()-4.f,face.getHeight()-4.f,
+                        pi*1.20f, pi*1.74f, true);
+            g.setColour(juce::Colour(0xfff1e2cc).withAlpha(0.15f));
+            g.strokePath(spec,juce::PathStrokeType(2.8f));
+
+            // Pointer is the ONLY mobile graphical layer.
+            const float rad = toRad(targetAngle(n,pos));
+            juce::Path stripe;
+            const float halfWidth = r * 0.043f;
+            stripe.startNewSubPath(-halfWidth, -r*0.32f);
+            stripe.lineTo(-halfWidth*0.62f, -r*1.008f);
+            stripe.lineTo(halfWidth*0.62f, -r*1.008f);
+            stripe.lineTo(halfWidth, -r*0.32f);
+            stripe.closeSubPath();
+            const auto transform = juce::AffineTransform::rotation(rad).translated(cx,cy);
+            g.setColour(juce::Colours::black.withAlpha(0.58f));
+            g.fillPath(stripe,transform.translated(1.5f,1.6f));
+            g.setColour(juce::Colour(0xffeee3d1));
+            g.fillPath(stripe,transform);
+            g.setColour(juce::Colour(0xff8e8473).withAlpha(0.70f));
+            g.strokePath(stripe,juce::PathStrokeType(0.8f),transform);
             return;
         }
     }
-    // Internal trim-pot controls are intentionally smaller, vector-drawn.
-    const float cx=x+width*.5f, cy=y+height*.5f;
-    const float r=std::min(width,height)*.45f;
-    auto dial=juce::Rectangle<float>(cx-r,cy-r,2*r,2*r);
+
+    // The six internal adjustment controls use their own static-light shading.
+    const float r = componentSize * 0.45f;
+    const auto dial = juce::Rectangle<float>(cx-r,cy-r,r*2.f,r*2.f);
     g.setColour(juce::Colours::black.withAlpha(.7f));
     g.fillEllipse(dial.translated(2.f,3.f));
     g.setGradientFill(juce::ColourGradient(juce::Colour(0xff605e58),cx-r,cy-r,
                                            darkMetal,cx+r,cy+r,false));
     g.fillEllipse(dial);
-    g.setColour(juce::Colour(0xffb0a084));g.drawEllipse(dial,1.2f);
+    g.setColour(juce::Colour(0xffb0a084)); g.drawEllipse(dial,1.2f);
     const float angle = toRad(-135.f + pos*270.f);
     g.setColour(ivory);
     g.drawLine(cx,cy,cx+std::sin(angle)*r*.78f,
-               cy-std::cos(angle)*r*.78f, 2.f);
+               cy-std::cos(angle)*r*.78f,2.f);
 }
 
 RCABA6AAudioProcessorEditor::RCABA6AAudioProcessorEditor(RCABA6AAudioProcessor& p)
     : juce::AudioProcessorEditor(&p), audioProcessor(p) {
     faceplate = juce::ImageFileFormat::loadFrom(BinaryData::panel_jpg, BinaryData::panel_jpgSize);
-    knobStyle.setSprites({{
-        juce::ImageFileFormat::loadFrom(BinaryData::knob_input_png, BinaryData::knob_input_pngSize),
-        juce::ImageFileFormat::loadFrom(BinaryData::knob_meter_png, BinaryData::knob_meter_pngSize),
-        juce::ImageFileFormat::loadFrom(BinaryData::knob_mode_png, BinaryData::knob_mode_pngSize),
-        juce::ImageFileFormat::loadFrom(BinaryData::knob_output_png, BinaryData::knob_output_pngSize)
-    }});
     const char* mainIDs[] = {"input","meter","mode","output"};
     const char* mainNames[] = {"INPUT","METER","BAL–LIMIT","OUTPUT"};
     for (int n=0;n<4;++n) {

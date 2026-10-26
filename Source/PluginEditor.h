@@ -4,16 +4,13 @@
 #include <array>
 #include <memory>
 
-// The photo-real rotary caps are independent RGBA layers extracted from the
-// chosen, user-approved faceplate. Only the caps rotate; the labels remain fixed.
+// The original panel and its engraved calibration rings are fixed. The knobs
+// are procedural, with stationary lighting and a separate moving pointer.
 class BA6AKnobLookAndFeel final : public juce::LookAndFeel_V4 {
 public:
-    void setSprites(const std::array<juce::Image, 4>& source) { sprites = source; }
     void drawRotarySlider(juce::Graphics&, int x, int y, int width, int height,
                           float sliderPos, float rotaryStartAngle,
                           float rotaryEndAngle, juce::Slider&) override;
-private:
-    std::array<juce::Image, 4> sprites;
 };
 
 class RCABA6AAudioProcessorEditor final : public juce::AudioProcessorEditor,
