@@ -26,9 +26,11 @@ constexpr std::array<float,25> inputDegrees{{
 -150.f,-137.5f,-125.f,-112.5f,-100.f,-87.5f,-75.f,-62.5f,-50.f,-37.5f,-25.f,-12.5f,0.f,
 12.5f,25.f,37.5f,50.f,62.5f,75.f,87.5f,100.f,112.5f,125.f,137.5f,150.f
 }};
+// Noon bisects the two center labels: 14 and 16.
 constexpr std::array<float,16> outputDegrees{{
--146.f,-127.75f,-109.5f,-91.25f,-73.f,-54.75f,-36.5f,-18.25f,
-0.f,18.25f,36.5f,54.75f,73.f,91.25f,109.5f,127.75f
+-139.f,-120.46667f,-101.93333f,-83.4f,-64.86667f,-46.33333f,
+-27.8f,-9.26667f,9.26667f,27.8f,46.33333f,64.86667f,
+83.4f,101.93333f,120.46667f,139.f
 }};
 // Ten clockwise positions: IN,V1,V2,V3,V4,V5,V6,FIL,COMPR,BAL.
 constexpr std::array<float,10> meterDegrees{{
