@@ -32,7 +32,7 @@ private:
     void drawNeedle(juce::Graphics&);
     void drawServiceDrawer(juce::Graphics&);
 
-    RCABA6AAudioProcessor& processor;
+    RCABA6AAudioProcessor& audioProcessor;
     BA6AKnobLookAndFeel knobStyle;
     juce::Image faceplate;
     std::array<juce::Slider, 4> mainKnobs;

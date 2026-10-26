@@ -68,7 +68,7 @@ void BA6AKnobLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y,
 }
 
 RCABA6AAudioProcessorEditor::RCABA6AAudioProcessorEditor(RCABA6AAudioProcessor& p)
-    : juce::AudioProcessorEditor(&p), processor(p) {
+    : juce::AudioProcessorEditor(&p), audioProcessor(p) {
     faceplate = juce::ImageFileFormat::loadFrom(BinaryData::panel_jpg, BinaryData::panel_jpgSize);
     knobStyle.setSprites({{
         juce::ImageFileFormat::loadFrom(BinaryData::knob_input_png, BinaryData::knob_input_pngSize),
@@ -104,7 +104,7 @@ RCABA6AAudioProcessorEditor::RCABA6AAudioProcessorEditor(RCABA6AAudioProcessor& 
     powerButton.setColour(juce::TextButton::textColourOnId, ivory);
     addAndMakeVisible(powerButton);
     powerBinding = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processor.apvts,"power",powerButton);
+        audioProcessor.apvts,"power",powerButton);
     setResizable(true,true);
     setResizeLimits(940,529,1672,941);
     getConstrainer()->setFixedAspectRatio(static_cast<double>(artWidth/artHeight));
@@ -126,9 +126,8 @@ void RCABA6AAudioProcessorEditor::configureKnob(
     s.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);
     s.setRotaryParameters(-.79f*pi,.79f*pi,true);
     s.setLookAndFeel(&knobStyle);
-    s.setMouseWheelMoveEnabled(true);
     addAndMakeVisible(s);
-    attachment=std::make_unique<SliderAttachment>(processor.apvts,parameter,s);
+    attachment=std::make_unique<SliderAttachment>(audioProcessor.apvts,parameter,s);
 }
 
 void RCABA6AAudioProcessorEditor::resized() {
@@ -151,7 +150,7 @@ void RCABA6AAudioProcessorEditor::resized() {
 }
 
 void RCABA6AAudioProcessorEditor::timerCallback() {
-    const auto wanted=juce::jlimit(0.f,20.f,processor.meterGainReduction.load(std::memory_order_relaxed));
+    const auto wanted=juce::jlimit(0.f,20.f,audioProcessor.meterGainReduction.load(std::memory_order_relaxed));
     meterDisplay += .22f * (wanted-meterDisplay);
     if (std::abs(meterDisplay-wanted)<.002f) meterDisplay=wanted;
     const float target=serviceOpen?1.f:0.f;
@@ -205,13 +204,13 @@ void RCABA6AAudioProcessorEditor::drawServiceDrawer(juce::Graphics& g) {
     g.setColour(juce::Colour(0xffc0b39a).withMultipliedAlpha(alpha*.75f));
     g.drawRoundedRectangle(juce::Rectangle<float>(51.f,695.f,1570.f,218.f),13.f,2.f);
     const char* labels[]={"BALANCE A","BALANCE B","ZERO ADJ.","FINE OUTPUT","HUM ADJ.","HEATER ADJ."};
-    g.setFont(juce::Font(17.f));
+    g.setFont(juce::Font(juce::FontOptions(17.0f)));
     g.setColour(ivory.withMultipliedAlpha(alpha));
     for(int n=0;n<6;++n) {
         g.drawFittedText(labels[n],juce::roundToInt(106.f+n*221.f),849,124,30,
                          juce::Justification::centred,1);
     }
     g.drawFittedText("CHASSIS POWER",1441,847,147,33,juce::Justification::centred,1);
-    g.setFont(juce::Font(15.f));
+    g.setFont(juce::Font(juce::FontOptions(15.0f)));
     g.drawFittedText("INTERNAL ALIGNMENT",610,705,451,24,juce::Justification::centred,1);
 }
