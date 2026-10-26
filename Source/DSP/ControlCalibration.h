@@ -20,17 +20,19 @@ constexpr int modeChoiceToDspIndex(int n) noexcept {
     return n==0 ? 1 : n==1 ? 0 : std::clamp(n,2,4);
 }
 // Degrees clockwise from twelve o'clock; one value per detent.
+// Static markings and their corresponding knob indicator share this map.
+// 0 INPUT and 16 OUTPUT lie exactly at 12 o'clock.
 constexpr std::array<float,25> inputDegrees{{
-    -151.f,-138.5f,-126.f,-113.5f,-101.f,-90.f,-79.f,-67.f,
-    -55.f,-42.f,-29.f,-15.f,0.f,13.f,26.f,40.f,
-    54.f,66.f,78.f,90.f,102.f,114.5f,127.f,139.f,152.f
+-150.f,-137.5f,-125.f,-112.5f,-100.f,-87.5f,-75.f,-62.5f,-50.f,-37.5f,-25.f,-12.5f,0.f,
+12.5f,25.f,37.5f,50.f,62.5f,75.f,87.5f,100.f,112.5f,125.f,137.5f,150.f
 }};
 constexpr std::array<float,16> outputDegrees{{
-    -145.f,-134.f,-123.f,-107.f,-90.f,-74.f,-59.f,-45.f,
-    -31.f,-15.f,0.f,30.f,60.f,76.f,90.f,145.f
+-146.f,-127.75f,-109.5f,-91.25f,-73.f,-54.75f,-36.5f,-18.25f,
+0.f,18.25f,36.5f,54.75f,73.f,91.25f,109.5f,127.75f
 }};
+// Ten clockwise positions: IN,V1,V2,V3,V4,V5,V6,FIL,COMPR,BAL.
 constexpr std::array<float,10> meterDegrees{{
-    -92.f,-65.f,-49.f,-34.f,0.f,35.f,62.f,91.f,118.f,138.f
+-136.f,-94.f,-67.f,-44.f,-22.f,0.f,28.f,60.f,93.f,136.f
 }};
 constexpr std::array<float,5> balLimitDegrees{{-92.f,-48.f,0.f,42.f,79.f}};
 template <std::size_t N> float snappedAngle(const std::array<float,N>& arr,float normalized) noexcept {

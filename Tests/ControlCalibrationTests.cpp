@@ -20,6 +20,10 @@ int main() {
         assert(outputStepFromLabel(i*2)==i);
         assert(std::abs(angleForKnob(3,float(i)/15.f)-outputDegrees[std::size_t(i)])<0.0001f);
     }
+    assert(inputDegrees[12]==0.0f);
+    assert(outputDegrees[8]==0.0f);
+    assert(meterDegrees[0]==-136.f);
+    assert(std::abs(angleForKnob(1,0.f)-meterDegrees[0])<.0001f);
     checkClockwise(inputDegrees);
     checkClockwise(outputDegrees);
     checkClockwise(meterDegrees);
