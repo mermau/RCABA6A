@@ -38,6 +38,12 @@ jobs:
           swift assets/generate_app_icon.swift assets/app_icon.png
           test -s assets/app_icon.png
 
+      - name: Generate photographic dial markings
+        shell: bash
+        run: |
+          python3 -m pip install --user numpy scipy Pillow opencv-python-headless
+          python3 assets/restore_photo_dials.py assets/panel.jpg
+
       - name: Configure JUCE 8.0.15 via FetchContent
         shell: bash
         run: |
