@@ -49,6 +49,14 @@ jobs:
           python -m pip install 'numpy<3' scipy Pillow opencv-python-headless
           python assets/restore_photo_dials.py assets/panel.jpg
 
+      - name: Upload restored panel preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: rcaba6a-panel-preview
+          path: assets/panel.jpg
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Configure JUCE 8.0.15 via FetchContent
         shell: bash
         run: |
