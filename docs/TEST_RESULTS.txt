@@ -1,0 +1,158 @@
+RCA BA-6A v0.9.1 (Collateral Effects) - risultati dei test (Linux x86-64, g++ 13, JUCE 8.0.16-security, 2026-10-27)
+
+== BA6A_Tests (DSP vs documentazione RCA, 96 kHz) ==
+---- panel tables ----
+PASS INPUT index 1 legend (dBm)                                    14.000  [14 .. 14]
+PASS INPUT index 20 legend (dBm)                                  -24.000  [-24 .. -24]
+PASS INPUT 2 dB per step                                            2.000  [2 .. 2]
+PASS OUTPUT index 1 legend (dBm)                                   11.000  [11 .. 11]
+PASS OUTPUT index 20 legend (dBm)                                  30.000  [30 .. 30]
+PASS OUTPUT 1 dB per step                                           1.000  [1 .. 1]
+PASS INPUT -4 dBm contact at twelve o'clock                         0.000  [0 .. 0]
+PASS OUTPUT 20 dBm contact at twelve o'clock                        0.000  [0 .. 0]
+PASS BAL-LIMIT OFF at twelve o'clock                                0.000  [0 .. 0]
+PASS meter scale 20 dB position (Fig. 1: 0.123)                     0.123  [0.11 .. 0.135]
+PASS meter scale 10 dB position (Fig. 1: 0.362)                     0.351  [0.34 .. 0.375]
+---- Fig. 4 limiter characteristic (INPUT -24, OUTPUT 30, SINGLE) ----
+     in  -30.0 dBm -> out  23.84 dBm (RCA 23.85)  GR  0.00 dB
+     in  -26.0 dBm -> out  27.82 dBm (RCA 27.85)  GR  0.00 dB
+     in  -24.5 dBm -> out  29.21 dBm (RCA 29.28)  GR  0.11 dB
+     in  -23.5 dBm -> out  29.43 dBm (RCA 29.62)  GR  0.88 dB
+     in  -22.5 dBm -> out  29.58 dBm (RCA 29.74)  GR  1.74 dB
+     in  -21.0 dBm -> out  29.76 dBm (RCA 29.86)  GR  3.06 dB
+     in  -17.0 dBm -> out  30.20 dBm (RCA 30.21)  GR  6.64 dB
+     in  -14.5 dBm -> out  30.46 dBm (RCA 30.43)  GR  8.90 dB
+     in  -11.0 dBm -> out  30.80 dBm (RCA 30.77)  GR 12.13 dB
+     in   -9.5 dBm -> out  30.95 dBm (RCA 30.92)  GR 13.54 dB
+     in   -4.0 dBm -> out  31.42 dBm (RCA 31.48)  GR 19.01 dB
+     in   -1.0 dBm -> out  31.61 dBm (RCA 31.78)  GR 22.36 dB
+PASS worst deviation from Fig. 4 (dB)                               0.186  [0 .. 0.35]
+PASS compression: 20 dB above verge into (dB)                       2.069  [1.6 .. 2.4]
+PASS gain below verge (dB, RCA 53.8 / 54 +-1)                      53.847  [53.3 .. 54.3]
+PASS output at verge (dBm, RCA 29.5 +-0.5)                         29.347  [29 .. 30]
+---- calibration of the dial legends (any INPUT/OUTPUT) ----
+PASS INPUT +14 / OUTPUT 11: output at verge re legend              -0.653  [-0.9 .. 0.1]
+PASS INPUT +14 / OUTPUT 18: output at verge re legend              -0.653  [-0.9 .. 0.1]
+PASS INPUT +14 / OUTPUT 30: output at verge re legend              -0.653  [-0.9 .. 0.1]
+PASS INPUT +0 / OUTPUT 11: output at verge re legend               -0.653  [-0.9 .. 0.1]
+PASS INPUT +0 / OUTPUT 18: output at verge re legend               -0.653  [-0.9 .. 0.1]
+PASS INPUT +0 / OUTPUT 30: output at verge re legend               -0.653  [-0.9 .. 0.1]
+PASS INPUT -12 / OUTPUT 11: output at verge re legend              -0.653  [-0.9 .. 0.1]
+PASS INPUT -12 / OUTPUT 18: output at verge re legend              -0.653  [-0.9 .. 0.1]
+PASS INPUT -12 / OUTPUT 30: output at verge re legend              -0.653  [-0.9 .. 0.1]
+---- distortion (Technical Data) ----
+PASS THD below verge 50 c/s (%, RCA < 0.6)                          0.135  [0.05 .. 0.6]
+PASS THD below verge 1000 c/s (%, RCA < 0.6)                        0.180  [0.05 .. 0.6]
+PASS THD below verge 7500 c/s (%, RCA < 0.6)                        0.119  [0.05 .. 0.6]
+PASS THD below verge 30 c/s, INPUT -24 (%, RCA < 1.2)               0.400  [0.3 .. 1.2]
+PASS THD below verge 30 c/s, INPUT +14 (%, RCA < 1.2)               0.752  [0.600242 .. 1.2]
+PASS THD below verge 1 kc/s, INPUT +14 (%, RCA < 0.6)               0.180  [0.05 .. 0.6]
+     input for 10 dB GR: -13.30 dBm, for 15 dB GR: -7.98 dBm
+PASS THD at 10 dB GR, 100 c/s (%, RCA < 0.75)                       0.429  [0.05 .. 0.75]
+PASS THD at 15 dB GR, 100 c/s (%, RCA < 1.0)                        0.936  [0.05 .. 1]
+PASS THD at 10 dB GR, 1000 c/s (%, RCA < 0.75)                      0.139  [0.05 .. 0.75]
+PASS THD at 15 dB GR, 1000 c/s (%, RCA < 1.0)                       0.805  [0.05 .. 1]
+PASS THD at 10 dB GR, 5000 c/s (%, RCA < 0.75)                      0.128  [0.05 .. 0.75]
+PASS THD at 15 dB GR, 5000 c/s (%, RCA < 1.0)                       0.780  [0.05 .. 1]
+     limiting OFF, +9 dB over verge: 38.01 dBm, THD 4.67 %
+PASS maximum output limiting OFF (dBm, RCA 38.5)                   38.012  [37.5 .. 39]
+PASS THD at maximum output (%)                                      4.670  [0.5 .. 5]
+PASS supply sag: overload level after 2 s re first 60 ms (dB)      -0.240  [-0.8 .. -0.1]
+---- Fig. 5 frequency response ----
+PASS no limiting, 20 c/s (dB)                                      -0.423  [-0.65 .. -0.15]
+PASS no limiting, 30 c/s (dB)                                      -0.191  [-0.4 .. -0.05]
+PASS no limiting, 100 c/s (dB)                                     -0.017  [-0.1 .. 0.05]
+PASS no limiting, 10000 c/s (dB)                                   -0.003  [-0.25 .. 0.1]
+PASS no limiting, 15000 c/s (dB)                                   -0.106  [-0.6 .. 0]
+PASS no limiting, 20000 c/s (dB)                                   -1.606  [-2.6 .. -1.4]
+PASS 10 dB gain reduction, 20 c/s (dB)                              0.625  [0.25 .. 1.2]
+PASS 10 dB gain reduction, 30 c/s (dB)                              0.324  [0 .. 0.7]
+PASS 10 dB gain reduction, 100 c/s (dB)                             0.016  [-0.15 .. 0.25]
+PASS 10 dB gain reduction, 10000 c/s (dB)                          -0.317  [-0.9 .. -0.2]
+PASS 10 dB gain reduction, 15000 c/s (dB)                          -0.803  [-1.8 .. -0.8]
+---- time constants ----
+PASS attack: time to 90 % of final GR (ms)                          0.375  [0.2 .. 4]
+PASS release time constant SINGLE (ms, RCA 330)                   341.000  [270 .. 400]
+     recovery to 1 dB: single 0.75s/0.90s, dual 3.39s/0.98s (3 s tone / 20 ms burst)
+PASS DUAL after sustained peaks: recovery / SINGLE recovery         4.503  [2.5 .. 10]
+PASS DUAL after a single short peak: recovery / SINGLE (Fig. 7)     1.083  [0.8 .. 1.35]
+---- noise and thump ----
+PASS output noise, controls at maximum (dBm, RCA -54)             -53.672  [-56 .. -52]
+PASS signal-to-thump, step 5 dB above verge (dB, RCA 21 min / 26 avg)    34.971  [21 .. 40]
+PASS signal-to-thump, step 10 dB above verge (dB, RCA 21 min / 26 avg)    28.974  [21 .. 34]
+PASS signal-to-thump with BALANCE A misadjusted (dB)               12.909  [0 .. 20.9739]
+PASS signal-to-thump with BALANCE B misadjusted (dB)               16.585  [0 .. 22.9739]
+---- meter and balancing procedure ----
+PASS GR, BAL-LIM OFF: full scale                                    1.000  [0.98 .. 1.02]
+PASS GR, BAL-LIM at A: ~5 dB (meter fraction)                       0.585  [0.533335 .. 0.657658]
+PASS GR, BAL-LIM at B: ~10 dB (meter fraction)                      0.345  [0.315864 .. 0.389493]
+PASS V1..V6 within CHECK band                                       0.538  [0.483 .. 0.587]
+PASS V1..V6 within CHECK band                                       0.532  [0.483 .. 0.587]
+PASS V1..V6 within CHECK band                                       0.546  [0.483 .. 0.587]
+PASS V1..V6 within CHECK band                                       0.527  [0.483 .. 0.587]
+PASS V1..V6 within CHECK band                                       0.530  [0.483 .. 0.587]
+PASS V1..V6 within CHECK band                                       0.540  [0.483 .. 0.587]
+PASS FIL at HEATER mark                                             0.800  [0.79 .. 0.81]
+PASS ZERO ADJ moves full-scale reading                              1.060  [1.03 .. 1.07]
+PASS FINE BAL at A, aligned: no deflection                          0.039  [0 .. 0.08]
+PASS COARSE BAL at A, BALANCE A off: deflection                     0.324  [0.2 .. 1.06]
+PASS COARSE BAL at A, BALANCE B off: deflection                     0.289  [0.02 .. 1.06]
+PASS FINE BAL at B, aligned: no deflection                          0.019  [0 .. 0.08]
+PASS COARSE BAL at B, BALANCE A off: deflection                     0.349  [0.2 .. 1.06]
+PASS COARSE BAL at B, BALANCE B off: deflection                     0.638  [0.2 .. 1.06]
+     procedure result: BALANCE A -0.022, BALANCE B -0.011
+PASS balancing procedure converges: |BALANCE A| residual            0.022  [0 .. 0.05]
+PASS balancing procedure converges: |BALANCE B| residual            0.011  [0 .. 0.05]
+PASS BAL-LIM A: output disconnected (peak)                          0.000  [0 .. 1e-05]
+---- power, OFF positions, link, robustness ----
+PASS INPUT OFF: silence (peak)                                      0.000  [0 .. 1e-05]
+PASS OUTPUT OFF: silence (peak)                                     0.000  [0 .. 1e-06]
+PASS power OFF: output after 2 s (dB re on)                       -69.122  [-300 .. -60]
+PASS warm-up: level 1 s after power ON (dB re warm)              -240.000  [-300 .. -30]
+PASS warm-up: level 15 s after power ON (dB re warm)               -0.000  [-0.3 .. 0.3]
+PASS stereo link: quiet channel follows loud channel GR (dB gain)    40.845  [30 .. 45]
+PASS dual mono: quiet channel keeps full gain (dB gain)            53.846  [53.3 .. 54.3]
+PASS extreme input: output always finite                            1.000  [1 .. 1]
+PASS extreme input: output bounded (peak dBFS)                      6.168  [-60 .. 12]
+
+ALL TESTS PASSED
+
+== BA6A_PluginTests (processor, stati, editor) ==
+PASS INPUT default 0 dBm
+PASS OUTPUT default 18 dBm (not OFF)
+PASS BAL-LIMIT default OFF
+PASS METER default GR
+PASS INPUT choices OFF, +14 .. -24
+PASS OUTPUT choices OFF, 11 .. 30
+PASS 2x oversampling latency reported at 48 kHz: 49
+PASS unity gain below verge at default settings: -24.16 dBFS
+PASS SINGLE: +16 dB over verge limited to about verge +1.5 dB: -16.85 dBFS
+PASS GR reported to the editor: 15.0 dB
+PASS no oversampling at 96 kHz
+PASS mono layout processes: -30.15 dBFS
+PASS oversized host block handled
+PASS migrated input +24 (max drive) -> -24 dBm contact
+PASS migrated output 20 -> 20 dBm contact
+PASS migrated BAL-LIMIT old 'B' -> B
+PASS migrated meter 'COMPR' -> GR
+PASS migrated balance A
+PASS migrated fine output
+PASS migrated heater
+PASS state round trip
+PASS invalid state ignored
+PASS layout 1 state loads
+PASS editor created
+PASS panel aspect ratio
+PASS snapshot gui_default
+PASS snapshot gui_limiting
+PASS chassis drawer enlarges the editor
+PASS snapshot gui_chassis_balancing
+PASS snapshot gui_chassis_levers
+PASS snapshot gui_power_off
+PASS snapshot gui_small
+
+ALL PLUGIN TESTS PASSED
+
+== pluginval --strictness-level 10 (VST3 Linux) ==
+Collateral Effects: RCA BA-6A v0.9.1
+SUCCESS

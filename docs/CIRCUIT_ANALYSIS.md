@@ -1,124 +1,95 @@
-# RCA BA-6A — circuit analysis and modelling notes
+# RCA BA-6A — analisi del circuito e derivazione del modello (v0.9.1)
 
-**Status: structural model, NOT component-by-component circuit solver; no measured null-test against a BA-6A.**
-Source documents: RCA *Type BA-6A Limiting Amplifier* technical manual (uploaded
-`ba6a.pdf`), especially printed pp. 1–5 and figures 3–8; RCA sales sheet
-(`RCA BA_6A.pdf`), full corrected 2004 schematic (`BA6A schematic corrected.jpeg`),
-and simplified circuit (`rca_ba-6a_limiting-amp_sch.pdf`).
+Fonti: RCA IB-18-2035-2 (manuale), schema Fig. 8, schema corretto 2004 (BA6A DIY), scheda commerciale RCA.
+Tutte le costanti sono in `Source/DSP/BA6AEngine.h/.cpp` e `Source/DSP/ControlCalibration.h`.
 
-## Signal graph from RCA documents
+## 1. Catena del segnale
 
 ```
-600 / 150 Ω transformer T1 -> R1 input 20×2 dB stepped pad
-   -> balanced, push-pull pair V1/V2 (6SK7 remote-cutoff tubes; variable µ)
-   -> interstage transformer T2 -> push-pull pair V3/V4 (6J7)
-   -> push-pull pair V5/V6 (6V6) -> T3 output transformer
-   -> R36 output 20×1 dB stepped bridge-T pad + R35 fine trim
-   -> 600 Ω output
-
-Feedback: V5/V6 output -> V7 (6H6 biased full-wave rectifier)
-   -> BAL-LIMIT S1 -> R11/C1 rapid network
-                 \-> R37/C18 memory network in DUAL
-   -> DC grid bias of the V1/V2 pair
+ingresso 600/150 Ω → T1 → R1 (2 × 25 kΩ, 20 scatti da 2 dB, sulle griglie)
+  → V1/V2 6SK7 push-pull, pendenza variabile (taglio remoto)
+  → T2 → V3/V4 6J7 → V5/V6 6V6GT (guadagno fisso, controreazione C7/R27, C8/R26)
+  → T3 → R36 a T ponte (20 scatti da 1 dB) → R35 FINE (100 Ω in serie) → 600 Ω
+rivelatore: placche 6V6 → rete di isolamento (C14/C15 0,25 µF, 56 kΩ) → V7 6H6 a doppia semionda,
+  catodi polarizzati a +66 V → C1 0,1 µF ‖ R11 3,3 MΩ  [+ R37 3,3 MΩ – C18 0,27 µF in DUAL] → griglie 6SK7
 ```
 
-The input grid and screen/cathode balance arrangements compensate tube-pair
-mismatch and reduce *thumps* on modulation changes. RCA used fixed negative
-feedback around the two later amplifying sections. 6H6 cathodes have a fixed
-positive bias so the detector starts conducting only above the verge of
-limiting (manual printed pp. 2–3 and figs. 3/8).
+## 2. Stadio a µ variabile (6SK7)
 
-## RCA calibration and exact documented measurements
+Per ogni valvola la corrente, normalizzata a quella di riposo e con la tensione di griglia `u` in unità di V0 (≈ 7,5 V), è
 
-| Parameter | Original published data | Software implementation |
-|---|---:|---|
-| First pair | 2 × 6SK7 | one nonlinear gain-controlled aggregate |
-| Next pairs | 2 × 6J7; 2 × 6V6 | two simplified tube saturating stages |
-| Rectifier | 6H6 full-wave | absolute peak detector |
-| Original input / output | 600/150 Ω input; 600 Ω output | conventional floating-point plugin I/O |
-| Below threshold gain | nominal 54 dB at 1 kHz | virtual level calibration instead of +54 dB electrical gain |
-| Verge | about -24 dBm at min input attenuation | **chosen** -26 dBFS internal reference |
-| Strong limiting slope | 20 dB input → ~1.9–2 dB output | feedback loop target gain ≈ 9.526:1 |
-| SINGLE timing | 600 µs attack; 330 ms release | exponentially smoothed detector |
-| DUAL additional network | 900 ms charge; 2 s discharge | parallel slow follower driven by the fast peak-held envelope (max fast,slow) |
-| Input control | 20 steps, 2 dB/contact | OFF + 20 contacts, -38..0 dB |
-| Output control | 20 steps, 1 dB/contact | 0..20 = -20..0 dB |
-| THD from manual | <0.6% 50–15,000 Hz below limiting | **not yet calibrated** |
+    i(u) = (1 − η·u)^(−1/η),     η = 0,099
 
-RCA's dynamic data are **time constants**, not the time to reach a specific
-percentage of full attenuation under a specified step. The simplified DUAL
-memory (maximum of two follower outputs) reflects the engineering description
-of fast recovery after isolated peaks, slow recovery after sustained peaks;
-it is not an exact nodal solution of the R37/C18 parallel RC arrangement.
+È un esponenziale con pendenza locale V0·(1 + η·|u|), cioè la curva a taglio remoto. Ne seguono:
 
-### Why digital -26 dBFS is NOT the hardware threshold
+- **riduzione di guadagno** (transconduttanza): GR = 8,686·(1 + 1/η)·ln(1 + η·c) dB, con `c` la tensione di controllo;
+- **corrente catodica** letta dallo strumento in GR: 10^(−0,91·GR/20).
 
-The original reference is electrical **dBm into an impedance**, whereas a DAW
-handles **dBFS without a fixed line-level calibration**. The code's -26 dBFS
-threshold is an explicit design choice for a usable plugin at typical DAW
-levels, *not* a literal conversion of -24 dBm. Likewise, plugin gain does
-not impose the hardware's 54 dB voltage gain, which would clip digital mixes.
-Use the input stepped pad to control how far audio drives the model.
+La scala stampata da RCA (misurata sulla foto della Fig. 1) coincide con questa legge:
 
-### Variable-µ and harmonic structure
+| GR (dB) | 20 | 15 | 10 | 7 | 5 | 3 | 1 |
+|---|---|---|---|---|---|---|---|
+| foto (frazione di fondo scala) | 0,123 | 0,201 | 0,362 | 0,483 | 0,587 | 0,727 | 0,898 |
+| modello | 0,123 | 0,208 | 0,351 | 0,480 | 0,592 | 0,730 | 0,900 |
 
-The original 6SK7 gain is controlled by a continuously variable negative grid
-bias, with nonlinear tube transconductance and a true balanced push-pull
-configuration. The prototype approximates this with three cascaded
-`std::tanh` transfer functions and minor asymmetric offsets; that yields
-program-level-dependent harmonics but **does not replicate** SPICE curves,
-transformer hysteresis, operating-point drift, measured frequency-dependent
-intermodulation or hardware-matched noise. The -17 Hz DC blocking/high-pass
-and 19 kHz first-order low-pass are software stability/color choices, not
-values derived by calculating T1/T2/T3 winding response.
+Altri aspetti dello stadio:
 
-### Detector feedback and stereo
+- **Pilotaggio di griglia** al limite di intervento: 0,165·V0 di picco differenziale. Il valore è tarato sulla distorsione dichiarata a 10 e 15 dB di riduzione.
+- **Conduzione di griglia**: la griglia non può superare il catodo (5,15 V di polarizzazione ≈ 0,69 V0). Sui transitori, prima che il controllo intervenga, la conduzione tosa il segnale.
+- **Coppia non selezionata**: rimane una differenza di curvatura del 22 % che il bilanciamento non può eliminare. I trimmer agiscono così:
+  - BALANCE A sposta la polarizzazione catodica (±0,06 V0);
+  - BALANCE B agisce sulla griglia schermo, con uno spostamento proporzionale alla polarizzazione (±0,10).
 
-The detector is driven from the output stage BEFORE the output pad, following
-RCA's 6H6 feedback architecture. A negative-feedback law varies the variable
-µ stage's attenuation above a detector threshold. Digital feedback slope
-requires calibration of the open-loop gain: the chosen loop factor of 9.526
-was selected to target the manual's 20:1.9 steady-state mapping, but test
-results do **not** establish a verified 20:1.9 transfer curve across level and
-frequency. The 35 dB reduction cap is a deliberate stabilizer.
+  Con i trimmer a 0 la coppia è bilanciata nei punti A (5 dB) e B (10 dB), come al termine della procedura del manuale.
+- **Colpi (thump)**: la differenza delle correnti continue cambia con la polarizzazione e passa attraverso T2. Il rapporto segnale/colpo misurato è 35 dB per un gradino di 5 dB e 29 dB per uno di 10 dB; la specifica dà 21 dB minimo e 26 dB medio.
 
-One BA-6A was **mono**, not stereo. A stereo instance of the plugin models a
-matched pair linked by the maximum detected peak to prevent balance wandering.
-This is an extension for DAW convenience and should not be mistaken for an
-original RCA stereo design.
+## 3. Rivelatore e costanti di tempo
 
-## Front panel and internal service controls
+Il diodo 6H6 è modellato come conduttanza 1/6 kΩ con un ginocchio morbido (softplus, larghezza 0,06·V0), e la rete è integrata per campione:
 
-- INPUT 20 detents of 2 dB (plus OFF); BAL-LIMIT A/B/OFF/SINGLE/DUAL; OUTPUT
-  20 detents of 1 dB; METER selection V1–V6, FIL, COARSE BAL, FINE BAL, GR.
-- The six service trims — BAL A, BAL B, ZERO ADJ, FINE OUTPUT, HUM ADJ and
-  HEATER ADJ — are on the expanded service hatch; ON/OFF is the seventh.
-- BAL A and BAL B intentionally mute plugin program output as they do in the
-  original alignment procedure; no 60 Hz calibration tone is generated.
-- Meter V1–V6, FIL, COARSE and FINE are displayed as selector positions; the
-  vintage meter animation presently renders **gain reduction only**. The
-  diagnostic needle readings have not been electrically modelled. ZERO ADJ
-  is stored in the session but not mapped to exact galvanometer currents.
-- HUM service adjustment is stored but currently has no audible effect, because
-  simulated mains hum is intentionally not introduced. Heater adjustment is
-  a small tube-shape bias, not a power supply/thermal model.
-- Studio plugin hosts can bypass processing using their standard plugin bypass;
-  switching power OFF instead mutes the signal like the original unit.
+    C1·dV1/dt  = i_diodo − V1/R11 − [DUAL]·(V1 − V18)/R37
+    C18·dV18/dt = [DUAL]·(V1 − V18)/R37
 
-## Required measurements for greater hardware fidelity
+Da qui le costanti di tempo: Rs·C1 = 0,6 ms; R11·C1 = 0,33 s; R37·C18 = 0,89 s; (R37 + R11)·C18 = 1,78 s.
+Gli stati del commutatore si comportano così:
 
-1. Record steady-state 1 kHz transfer curves for stepped INPUT, output pad
-   max and limiting OFF/SINGLE/DUAL, across -45 to +10 dBm equivalent.
-2. Capture attack and full recovery at 1 kHz for isolated bursts, 50 ms and
-   sustained 3 s tones, both modes; derive matched detector RC curves.
-3. Characterize harmonic spectra (THD+N, HD2/3) from 50 Hz to 15 kHz at
-   0/5/10/15 dB gain reduction and at multiple source impedances.
-4. Capture transformer response and nonlinear magnetic behavior, including
-   LF saturation, high-frequency phase changes, and intermodulation.
-5. Fit remote-cutoff 6SK7 tube characteristic equations and matched pair
-   balancing response; consider 2× or 4× oversampling with antialias filters.
-6. Implement galvanometer needle ballistics and genuine V1–V6, FIL and
-   balance metering from equivalent circuit state.
+- in OFF la tensione di controllo è cortocircuitata;
+- in SINGLE C18 resta isolato e conserva la carica, che viene restituita al ritorno in DUAL;
+- in A/B le griglie ricevono una polarizzazione fissa, pari a 5 e 10 dB sullo strumento (tabella "Meter Indications"), più il 60 Hz in modo comune. L'uscita è staccata dalla linea.
 
-Only after this calibration can the software plausibly be labelled a
-**high-fidelity hardware emulation** rather than an **inspired prototype**.
+**Calibrazione statica (Fig. 4).** Il guadagno del rivelatore, 8,6 (≈ 66 V di polarizzazione del 6H6 diviso V0), e la soglia, −0,32 dB rispetto alla retta, sono stati ottenuti con un fit ai minimi quadrati della curva digitalizzata dal manuale (errore quadratico medio 0,03 dB). In simulazione dinamica lo scarto massimo è 0,19 dB.
+
+## 4. Risposta in frequenza (Fig. 5)
+
+| Elemento | Modello | Effetto |
+|---|---|---|
+| T2, T3 | passa-alto del 1° ordine a 4,4 Hz ciascuno | −0,4 dB a 20 Hz |
+| Uscita | Butterworth del 4° ordine a 21,5 kHz | −0,1 dB a 15 kHz, −1,6 dB a 20 kHz |
+| Rivelatore | passa-alto a 10,5 Hz (C14/C15 con 56 kΩ: 11,4 Hz) e lieve esaltazione degli acuti (+1,2 dB a 15 kHz) | sotto limitazione i bassi vengono ridotti meno e gli acuti di più |
+
+Risultato con 10 dB di riduzione: +0,6 dB a 20 Hz e −0,8 dB a 15 kHz, come le curve tratteggiate di Fig. 5.
+
+## 5. Stadi fissi, trasformatore d'uscita, rumore
+
+- **6J7 + 6V6 in controreazione**: s − 0,008·s³ + 0,0015·s², con saturazione di ordine 6 a 3,0 volte il livello al limite. Al limite la THD è 0,18 %; il massimo con limitazione OFF è +38,1 dBm (RCA: 38,5).
+- **T3**: perdita del nucleo proporzionale al quadrato del flusso. La THD a 30 Hz al limite è 0,4 % (RCA: < 1,2 %).
+- **T1** (davanti all'attenuatore): stessa legge di perdita del nucleo, normalizzata a +14 dBm a 30 Hz (0,5 %). Dipende dal livello assoluto d'ingresso, non dalla posizione di INPUT.
+- **Alimentazione**: la media di |uscita| con costante di 40 ms abbassa il punto di saturazione delle 6V6 fino al 5 %, con una costante di 120 ms (choke d'ingresso L1 4,5 H, C17 40 µF).
+- **Rumore residuo**: fruscio −56 dBm e ronzio −59 dBm (fondamentale di rete + 2ª e 3ª armonica, filamenti in alternata di 6J7/6V6); totale −53,7 dBm (RCA: −54 dBm). Si disattiva con NOISE + HUM. Le 6SK7 sono alimentate in continua da SR1 e non contribuiscono. HUM ADJ. agisce solo sull'alimentazione di un preamplificatore esterno.
+- **Rete**: 60 c/s (originale USA) o 50 c/s; vale per il ronzio e per il segnale di bilanciamento nelle posizioni A/B.
+
+## 6. Strumento
+
+| Posizione | Lettura |
+|---|---|
+| GR | corrente catodica media delle due 6SK7 × (1 + 0,12·ZERO ADJ) |
+| V1, V2 | correnti delle due 6SK7 (si spostano con BALANCE A e calano sotto limitazione) |
+| V3–V6 | valori nominali nella banda CHECK |
+| FIL | tacca HEATER × Vfil/6,5 V |
+| COARSE / FINE BAL | uscita raddrizzata; fondo scala −24 / −44 dB rispetto al livello al limite |
+
+Balistica: sistema del 2° ordine, fn = 1,7 Hz, ζ = 0,72, con arresti meccanici.
+
+## 7. Stereo
+
+Il BA-6A è mono. In stereo il plugin modella due unità con le reti di controllo collegate (STEREO LINK) oppure due unità indipendenti.
