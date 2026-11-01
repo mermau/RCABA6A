@@ -39,7 +39,7 @@ Fig. 4 caratteristica, Fig. 5 risposta in frequenza, Fig. 6/7 forme d'onda, Fig.
 |---|---|---|
 | 20 | OUTPUT su OFF di default: silenzio all'inserimento | default 18 dBm (guadagno unitario al limite) |
 | 21 | Commutatori come parametri float a passi | `AudioParameterChoice` con le legende reali (automazione e KeyLab mostrano "−12", "SINGLE"…) |
-| 22 | Test con `assert()`, che con `-DCMAKE_BUILD_TYPE=Release` (CI) non vengono compilati: i test di calibrazione non verificavano nulla | Test con controlli espliciti; 88 verifiche DSP e 32 d'integrazione (v0.9.1) |
+| 22 | Test con `assert()`, che con `-DCMAKE_BUILD_TYPE=Release` (CI) non vengono compilati: i test di calibrazione non verificavano nulla | Test con controlli espliciti; 89 verifiche DSP e 32 d'integrazione (v0.9.2) |
 | 23 | Il test "Approved_GUI_Regression" garantiva che l'immagine restasse uguale a quella sbagliata | Rimosso; la CI salva gli screenshot reali dell'editor |
 | 24 | Il pannello SERVICE copriva le manopole: impossibile eseguire il bilanciamento (servono METER e BAL-LIMIT) | Cassetto sotto il pannello, l'editor si allunga; istruzioni p. 7 del manuale stampate sul telaio |
 | 25 | `getRawParameterValue("…")` cercato per nome a ogni blocco | puntatori in cache |
@@ -57,6 +57,14 @@ Fig. 4 caratteristica, Fig. 5 risposta in frequenza, Fig. 6/7 forme d'onda, Fig.
 | 32 | **Rete a 60 o 50 c/s**: frequenza del ronzio e del segnale di bilanciamento | "Power Required: 50-60 cycles" |
 | 33 | Levette del telaio ridisegnate come un unico pezzo (dado, boccola, collare, leva cromata, estremità arrotondata) | prima la leva sembrava staccata dal perno |
 | 34 | Marchio Collateral Effects: nome produttore, codice `Clfx`, bundle id, icona e sigla sul pannello | richiesta |
+
+## E. v0.9.2: correzione dell'anello di limitazione
+
+| # | Problema | Correzione |
+|---|---|---|
+| 35 | Nella v0.9.0/0.9.1 la tensione di controllo arrivava alle griglie con un ritardo di 0,15 ms. L'anello di retroazione andava quindi oltre il bersaglio a ogni attacco: un tono 10 dB sopra il limite produceva subito 15 dB di riduzione invece di 9,4, che tornavano al valore corretto solo in circa 180 ms. Era un "buco" udibile dopo ogni transitorio | In SINGLE/DUAL le griglie sono collegate direttamente a C1, come nel circuito reale; lo smorzamento resta solo nei passaggi da e verso le polarizzazioni fisse A/B. Il nuovo test controlla che la riduzione all'attacco non superi quella di regime |
+| 36 | Con l'anello corretto, dopo un picco breve DUAL recupera un po' più in fretta di SINGLE (0,57 s contro 0,75 s): C18 ancora scarico assorbe parte della carica di C1 attraverso R37. È il comportamento fisico della rete reale | Test di Fig. 7 aggiornato |
+| 37 | Squilibrio residuo delle 6SK7 portato al 32 % | Rapporto segnale/colpo 31 dB per un gradino di 10 dB (RCA: minimo 21, medio 26) |
 
 ## Cosa resta un'approssimazione (dichiarato)
 

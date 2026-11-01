@@ -1,4 +1,4 @@
-# RCA BA-6A — emulazione del limiting amplifier (v0.9.1) · Collateral Effects
+# RCA BA-6A — emulazione del limiting amplifier (v0.9.2) · Collateral Effects
 
 Plugin VST3 / AU / Standalone (C++17, JUCE 8.0.16-security, CMake) che emula il limitatore
 a valvole **RCA BA-6A (MI-11225)**. Tutti i comandi, le scale e le costanti derivano dal
@@ -77,10 +77,11 @@ ricreate, perché il loro intervallo non corrispondeva all'hardware.
 - `Source/PluginProcessor.*`: parametri, oversampling 2× a 44,1/48 kHz con latenza dichiarata, bypass allineato, migrazione degli stati
 - `Source/PluginEditor.*`: GUI (fotografia del pannello ripulita, legende vettoriali, manopole renderizzate, strumento, cassetto chassis)
 - `assets/tools/generate_panel.py`, `assets/tools/render_knobs.py`: rigenerano `panel_clean.jpg` e `knob_strip.png` a partire da `panel.jpg`
-- `Tests/EngineTests.cpp`: 88 verifiche contro Technical Data, Fig. 4, Fig. 5, Fig. 6/7 e la tabella dello strumento
+- `Tests/EngineTests.cpp`: 89 verifiche contro Technical Data, Fig. 4, Fig. 5, Fig. 6/7 e la tabella dello strumento
 - `Tests/PluginTests.cpp`: processor, latenza, mono/stereo, migrazione degli stati, editor e screenshot
 - `docs/AUDIT_v0.9.md`: errori trovati nella v0.8.1 e correzioni
 - `docs/CIRCUIT_ANALYSIS.md`: derivazione del modello e limiti dichiarati
 - `docs/TEST_RESULTS.txt`: risultati dei test
+- `docs/Manuale_RCA_BA-6A.pdf`, `docs/manuale_ba6a.html`: manuale d'uso
 
 Font: Barlow Condensed (SIL Open Font License, `assets/fonts/OFL-BarlowCondensed.txt`).

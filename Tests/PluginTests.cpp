@@ -131,6 +131,9 @@ int main(int argc, char** argv) {
                 outDir.createDirectory();
                 juce::FileOutputStream os(outDir.getChildFile(name + ".png"));
                 if (os.openedOk()) { os.setPosition(0); os.truncate(); juce::PNGImageFormat().writeImageToStream(img, os); }
+                const auto hi = e->createComponentSnapshot(e->getLocalBounds(), true, 2.0f);
+                juce::FileOutputStream os2(outDir.getChildFile(name + "@2x.png"));
+                if (os2.openedOk()) { os2.setPosition(0); os2.truncate(); juce::PNGImageFormat().writeImageToStream(hi, os2); }
             }
             return img;
         };

@@ -11,7 +11,7 @@ constexpr double kDbPerNeper = 8.685889638065035;
 // balance bias points only; a small difference in remote-cutoff curvature
 // remains. Sized so that the default unit shows the published signal-to-thump
 // ratio (21 dB minimum, 26 dB average, for 5-10 dB steps above verge).
-constexpr double kResidualEtaMismatch = 0.22;
+constexpr double kResidualEtaMismatch = 0.32;
 constexpr double kTrimRangeA = 0.06;   // BALANCE A: cathode (grid-to-cathode offset), V0 units
 constexpr double kTrimRangeB = 0.10;   // BALANCE B: screen (bias-proportional offset)
 constexpr double kTestAmpA = 0.12;     // internal 60 c/s balancing voltage, position A
@@ -324,8 +324,12 @@ void BA6AEngine::process(float* left, float* right, std::size_t frames) noexcept
                 d.v1 = 0.0;                       // control voltage shorted to ground
                 d.drive = d.conductance = 0.0;
             }
-            const double target = limiting ? d.v1 : fixedBias;
-            d.grid += gridCoeff * (target - d.grid);
+            // In SINGLE/DUAL the grids sit directly on C1 (through the input
+            // attenuator, whose time constant with the grid capacitance is
+            // negligible): any extra lag here would make the loop overshoot.
+            // Switch changes to/from the fixed A/B bias are smoothed slightly.
+            if (limiting) d.grid = d.v1;
+            else d.grid += gridCoeff * (fixedBias - d.grid);
         }
     }
 

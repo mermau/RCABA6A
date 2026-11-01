@@ -1,4 +1,4 @@
-# RCA BA-6A — analisi del circuito e derivazione del modello (v0.9.1)
+# RCA BA-6A — analisi del circuito e derivazione del modello (v0.9.2)
 
 Fonti: RCA IB-18-2035-2 (manuale), schema Fig. 8, schema corretto 2004 (BA6A DIY), scheda commerciale RCA.
 Tutte le costanti sono in `Source/DSP/BA6AEngine.h/.cpp` e `Source/DSP/ControlCalibration.h`.
@@ -36,12 +36,12 @@ Altri aspetti dello stadio:
 
 - **Pilotaggio di griglia** al limite di intervento: 0,165·V0 di picco differenziale. Il valore è tarato sulla distorsione dichiarata a 10 e 15 dB di riduzione.
 - **Conduzione di griglia**: la griglia non può superare il catodo (5,15 V di polarizzazione ≈ 0,69 V0). Sui transitori, prima che il controllo intervenga, la conduzione tosa il segnale.
-- **Coppia non selezionata**: rimane una differenza di curvatura del 22 % che il bilanciamento non può eliminare. I trimmer agiscono così:
+- **Coppia non selezionata**: rimane una differenza di curvatura del 32 % che il bilanciamento non può eliminare. I trimmer agiscono così:
   - BALANCE A sposta la polarizzazione catodica (±0,06 V0);
   - BALANCE B agisce sulla griglia schermo, con uno spostamento proporzionale alla polarizzazione (±0,10).
 
   Con i trimmer a 0 la coppia è bilanciata nei punti A (5 dB) e B (10 dB), come al termine della procedura del manuale.
-- **Colpi (thump)**: la differenza delle correnti continue cambia con la polarizzazione e passa attraverso T2. Il rapporto segnale/colpo misurato è 35 dB per un gradino di 5 dB e 29 dB per uno di 10 dB; la specifica dà 21 dB minimo e 26 dB medio.
+- **Colpi (thump)**: la differenza delle correnti continue cambia con la polarizzazione e passa attraverso T2. Il rapporto segnale/colpo misurato è 37 dB per un gradino di 5 dB e 31 dB per uno di 10 dB; la specifica dà 21 dB minimo e 26 dB medio.
 
 ## 3. Rivelatore e costanti di tempo
 
@@ -53,6 +53,7 @@ Il diodo 6H6 è modellato come conduttanza 1/6 kΩ con un ginocchio morbido (sof
 Da qui le costanti di tempo: Rs·C1 = 0,6 ms; R11·C1 = 0,33 s; R37·C18 = 0,89 s; (R37 + R11)·C18 = 1,78 s.
 Gli stati del commutatore si comportano così:
 
+- in SINGLE e DUAL le griglie seguono direttamente la tensione di C1, senza altri ritardi: un ritardo anche minimo (0,15 ms) farebbe andare l'anello oltre il bersaglio a ogni attacco;
 - in OFF la tensione di controllo è cortocircuitata;
 - in SINGLE C18 resta isolato e conserva la carica, che viene restituita al ritorno in DUAL;
 - in A/B le griglie ricevono una polarizzazione fissa, pari a 5 e 10 dB sullo strumento (tabella "Meter Indications"), più il 60 Hz in modo comune. L'uscita è staccata dalla linea.

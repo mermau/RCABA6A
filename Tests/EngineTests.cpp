@@ -208,6 +208,9 @@ int main() {
         double t90 = 0;
         for (std::size_t k = 0; k < gr.size(); ++k) if (gr[k] >= 0.9 * final) { t90 = stepMs * (double) (k + 1); break; }
         range("attack: time to 90 % of final GR (ms)", t90, 0.2, 4.0);
+        // A feedback limiter must not overshoot on the attack (no "hole").
+        double peakGr = 0; for (double v : gr) peakGr = std::max(peakGr, v);
+        range("attack: peak GR re steady GR (dB)", peakGr - final, 0.0, 0.5);
         // Release: remove the signal.
         std::fill(buf.begin(), buf.end(), 0.0f);
         const double g0 = e.gainReductionDb();
@@ -234,7 +237,10 @@ int main() {
     const double sShort = recovery(hw::BalLimit::Single, 0.02), dShort = recovery(hw::BalLimit::Dual, 0.02);
     std::printf("     recovery to 1 dB: single %.2fs/%.2fs, dual %.2fs/%.2fs (3 s tone / 20 ms burst)\n", sLong, sShort, dLong, dShort);
     range("DUAL after sustained peaks: recovery / SINGLE recovery", dLong / sLong, 2.5, 10.0);
-    range("DUAL after a single short peak: recovery / SINGLE (Fig. 7)", dShort / sShort, 0.8, 1.35);
+    // Fig. 7: after a single short peak DUAL behaves like SINGLE because C18 has
+    // no time to charge; the still-empty C18 even drains C1 through R37, so
+    // the recovery is somewhat quicker, never slower.
+    range("DUAL after a single short peak: recovery / SINGLE (Fig. 7)", dShort / sShort, 0.6, 1.2);
 
     std::printf("---- noise and thump ----\n");
     {

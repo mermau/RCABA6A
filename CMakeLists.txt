@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(RCABA6A VERSION 0.9.1 LANGUAGES C CXX)
+project(RCABA6A VERSION 0.9.2 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -66,7 +66,7 @@ if(RCABA6A_BUILD_PLUGIN)
     # Collateral Effects brand (v0.9.1). The manufacturer code changed from
     # "Iaau": hosts list the plugin as a new one under Collateral Effects.
     juce_add_plugin(RCABA6A
-        VERSION 0.9.1
+        VERSION 0.9.2
         COMPANY_NAME "Collateral Effects"
         COMPANY_WEBSITE "https://github.com/mermau"
         BUNDLE_ID "com.collateraleffects.rcaba6a"
